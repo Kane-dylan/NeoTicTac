@@ -1,21 +1,31 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loginUser } from "../services/api";
+import { useSocket } from "../context/SocketContext"; // Import useSocket
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { updateAuthToken } = useSocket(); // Get updateAuthToken from context
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(""); // Clear previous errors
     try {
       const data = await loginUser({ username, password });
-      localStorage.setItem("token", data.token);
-      navigate("/lobby");
+      if (data.token) {
+        updateAuthToken(data.token); // Update token in context and localStorage
+        localStorage.setItem("username", username); // Store username separately
+        navigate("/lobby");
+      } else {
+        setError("Login successful, but no token received.");
+      }
     } catch (err) {
-      setError("Invalid username or password");
+      setError(
+        err.response?.data?.msg || err.message || "Invalid username or password"
+      );
     }
   };
 

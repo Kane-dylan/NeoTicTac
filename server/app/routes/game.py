@@ -41,15 +41,35 @@ def create_game():
 @jwt_required()
 def get_game(game_id):
     try:
-        game = Game.query.get_or_404(game_id)
+        game = Game.query.get(game_id)
+        if not game:
+            return jsonify({
+                'msg': f'Game with ID {game_id} not found',
+                'available_games': [g.id for g in Game.query.all()]
+            }), 404
+            
+        # Ensure board is properly formatted
+        board = game.board if hasattr(game, 'board') and game.board else [""] * 9
+        if isinstance(board, str):
+            try:
+                import json
+                board = json.loads(board)
+            except:
+                board = [""] * 9
+        
         return jsonify({
             'id': game.id,
             'player_x': game.player_x,
             'player_o': game.player_o,
-            'board': game.board,
+            'board': board,
             'current_turn': game.current_turn,
             'winner': game.winner,
             'is_draw': game.is_draw
         })
     except Exception as e:
-        return jsonify({'msg': 'Game not found', 'error': str(e)}), 404
+        print(f"Error fetching game {game_id}: {str(e)}")
+        return jsonify({
+            'msg': 'Failed to fetch game', 
+            'error': str(e),
+            'game_id': game_id
+        }), 500

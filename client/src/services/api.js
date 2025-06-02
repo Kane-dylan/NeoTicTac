@@ -17,6 +17,33 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error("API Error Details:", {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+    });
+
+    // Handle specific error cases
+    if (error.response?.status === 404) {
+      console.warn("Resource not found:", error.config?.url);
+    } else if (
+      error.response?.status === 401 ||
+      error.response?.status === 422
+    ) {
+      console.warn("Authentication error, consider redirecting to login");
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // 🔐 Auth API
 export const registerUser = async (userData) => {
   const response = await api.post("/auth/register", userData);
@@ -35,8 +62,17 @@ export const createGame = async () => {
 };
 
 export const getGameDetails = async (gameId) => {
-  const response = await api.get(`/game/${gameId}`);
-  return response.data;
+  try {
+    console.log(`Fetching game details for ID: ${gameId}`);
+    const response = await api.get(`/game/${gameId}`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      `Failed to get game details for ID ${gameId}:`,
+      error.response?.data || error.message
+    );
+    throw error;
+  }
 };
 
 // ✅ ADD THIS
