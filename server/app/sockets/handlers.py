@@ -124,6 +124,7 @@ def register_socket_handlers(socketio):
                 return
             
             is_player = False
+            player_role = 'spectator'
             was_waiting = game.player_o is None
             
             # Player assignment logic
@@ -131,12 +132,14 @@ def register_socket_handlers(socketio):
                 # Player X rejoining
                 game_rooms[game_id]['players'].add(player)
                 is_player = True
+                player_role = 'X'
                 print(f"Player X {player} rejoined game {game_id}")
                 
             elif game.player_o == player:
                 # Player O rejoining
                 game_rooms[game_id]['players'].add(player)
                 is_player = True
+                player_role = 'O'
                 print(f"Player O {player} rejoined game {game_id}")
                 
             elif not game.player_o and game.player_x != player:
@@ -144,6 +147,7 @@ def register_socket_handlers(socketio):
                 game.player_o = player
                 game_rooms[game_id]['players'].add(player)
                 is_player = True
+                player_role = 'O'
                 
                 try:
                     db.session.commit()
@@ -169,26 +173,32 @@ def register_socket_handlers(socketio):
             else:
                 # Join as spectator
                 game_rooms[game_id]['spectators'].add(player)
+                player_role = 'spectator'
                 print(f"Player {player} joined as spectator in game {game_id}")
             
-            # Send comprehensive game state
+            # Send comprehensive game state with clear role information
             game_state = {
                 'game': game.to_dict(),
                 'room_info': {
                     'players': list(game_rooms[game_id]['players']),
                     'spectators': list(game_rooms[game_id]['spectators'])
                 },
-                'player_role': 'X' if game.player_x == player else 'O' if game.player_o == player else 'spectator'
+                'player_role': player_role,
+                'is_your_turn': (
+                    (player_role == 'X' and game.current_turn == 'X') or
+                    (player_role == 'O' and game.current_turn == 'O')
+                ) if player_role != 'spectator' else False
             }
             
             emit('game_state_update', game_state, room=room_name)
             
-            # Notify about player joining
+            # Notify about player joining with clear role information
             emit('player_joined', {
                 'player': player,
                 'is_player': is_player,
-                'role': 'X' if game.player_x == player else 'O' if game.player_o == player else 'spectator',
-                'game_ready': game.player_o is not None
+                'role': player_role,
+                'game_ready': game.player_o is not None,
+                'message': f"{player} joined as {player_role.upper() if player_role != 'spectator' else 'spectator'}"
             }, room=room_name)
             
         except Exception as e:

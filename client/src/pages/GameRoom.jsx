@@ -323,12 +323,22 @@ const GameRoom = () => {
     return "";
   };
 
+  const getCurrentPlayerRole = () => {
+    if (currentPlayer === game.player_x) return "X";
+    if (currentPlayer === game.player_o) return "O";
+    return "spectator";
+  };
+
   const isCurrentPlayerTurn = () => {
     if (!game.player_o) return false; // Can't play until both players are present
-    return (
-      (game.current_turn === "X" && currentPlayer === game.player_x) ||
-      (game.current_turn === "O" && currentPlayer === game.player_o)
-    );
+    const playerRole = getCurrentPlayerRole();
+    return playerRole !== "spectator" && game.current_turn === playerRole;
+  };
+
+  const getOpponentName = () => {
+    if (currentPlayer === game.player_x) return game.player_o;
+    if (currentPlayer === game.player_o) return game.player_x;
+    return null;
   };
 
   if (loading) {
@@ -416,6 +426,7 @@ const GameRoom = () => {
               <PlayerInfo
                 player={{ username: game.player_x, symbol: "X" }}
                 isActive={game.current_turn === "X" && game.player_o}
+                isCurrentUser={currentPlayer === game.player_x}
               />
             )}
 
@@ -423,6 +434,7 @@ const GameRoom = () => {
               <PlayerInfo
                 player={{ username: game.player_o, symbol: "O" }}
                 isActive={game.current_turn === "O"}
+                isCurrentUser={currentPlayer === game.player_o}
               />
             ) : (
               <div className="mt-3 bg-blue-100 p-3 rounded">
@@ -435,12 +447,18 @@ const GameRoom = () => {
             {game.player_o ? (
               isCurrentPlayerTurn() ? (
                 <div className="bg-green-100 p-2 rounded text-center">
-                  Your turn! (Playing as {getPlayerSymbol(currentPlayer)})
+                  Your turn! (Playing as {getCurrentPlayerRole()})
+                </div>
+              ) : getCurrentPlayerRole() !== "spectator" ? (
+                <div className="bg-gray-100 p-2 rounded text-center">
+                  {getOpponentName()}'s turn (
+                  {game.current_turn === "X" ? "X" : "O"})
                 </div>
               ) : (
-                <div className="bg-gray-100 p-2 rounded text-center">
-                  Opponent's turn (
-                  {game.current_turn === "X" ? game.player_x : game.player_o})
+                <div className="bg-blue-100 p-2 rounded text-center">
+                  Spectating:{" "}
+                  {game.current_turn === "X" ? game.player_x : game.player_o}'s
+                  turn
                 </div>
               )
             ) : (
@@ -464,6 +482,8 @@ const GameRoom = () => {
             <p>Player X: {game.player_x}</p>
             <p>Player O: {game.player_o}</p>
             <p>Current turn: {game.current_turn}</p>
+            <p>My role: {getCurrentPlayerRole()}</p>
+            <p>Is my turn: {isCurrentPlayerTurn() ? "Yes" : "No"}</p>
           </div>
         </div>
 
