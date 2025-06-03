@@ -18,45 +18,59 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
-    # Add logging for loaded config if possible (Flask's logger is available after app creation)
-    # Example: app.logger.info(f"Loaded CORS_ORIGINS from config: {app.config.get('CORS_ORIGINS')}")
+    # Initialize logging
+    if not app.debug:
+        import logging
+        from logging.handlers import RotatingFileHandler
+        # You might want to configure the log file path and level
+        # For Render, stdout/stderr logging is usually preferred.
+        # This is an example for file-based logging if needed.
+        if not os.path.exists('logs'):
+            os.mkdir('logs')
+        file_handler = RotatingFileHandler('logs/tictactoe.log', maxBytes=10240, backupCount=10)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        app.logger.addHandler(file_handler)
+        app.logger.setLevel(logging.INFO)
+        app.logger.info('Tic Tac Toe App startup')
+
+    app.logger.info(f"Flask App Name: {app.name}")
+    app.logger.info(f"CORS_ORIGINS from config: {app.config.get('CORS_ORIGINS')}")
+    app.logger.info(f"DATABASE_URL from config: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
+    app.logger.info(f"JWT_SECRET_KEY is set: {'JWT_SECRET_KEY' in app.config}")
+
 
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
     
     # Enhanced CORS configuration
-    # Get origins from config, default to an empty list if not found
     configured_origins = app.config.get('CORS_ORIGINS', [])
+    app.logger.info(f"Configured CORS Origins: {configured_origins}")
 
-    # Define a base set of required origins, including the one from the error message
-    required_origins = [
-        "https://tic-tac-toe-ten-murex-86.vercel.app",  # Client origin from the error
-        "http://localhost:5173",  # Common Vite dev server
-        "http://localhost:5174"   # Alternative dev port
+    default_required_origins = [
+        "https://tic-tac-toe-ten-murex-86.vercel.app",  # Your Vercel deployment
+        "http://localhost:5173",                      # Common Vite dev server
+        "http://localhost:3000",                      # Common React dev server
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
     ]
     
-    # Combine configured origins with required origins, ensuring no duplicates
-    effective_origins = list(set(configured_origins + required_origins))
+    # Combine configured origins with default required origins, ensuring no duplicates
+    # and filtering out any None or empty string values if they somehow get in.
+    effective_origins = list(set([origin for origin in configured_origins + default_required_origins if origin]))
     
-    # Log the effective origins that will be used by Flask-CORS
-    # Note: app.logger is available after Flask app object is created.
-    # For logging before that, use standard Python logging.
-    # This log will appear in your server logs (e.g., on Render).
-    # import logging
-    # logging.basicConfig(level=logging.INFO)
-    # logging.info(f"Calculated effective CORS origins: {effective_origins}")
-    # If app.logger is available and configured:
-    # app.logger.info(f"Effective CORS origins for Flask-CORS: {effective_origins}")
-
+    app.logger.info(f"Effective CORS origins for Flask-CORS: {effective_origins}")
 
     CORS(app, 
-         origins=effective_origins, # Use the combined and deduplicated list
-         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'], # Added common X-Requested-With
+         origins=effective_origins, 
+         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
          supports_credentials=True,
-         expose_headers=['Content-Length'], # Expose common headers if needed
-         max_age=86400 # Cache preflight responses for 1 day
+         expose_headers=['Content-Length'], 
+         max_age=86400 
     )
     
     # Enhanced socket initialization with better authentication handling
@@ -90,9 +104,9 @@ def create_app():
     # Initialize SocketIO with production settings
     socketio.init_app(app, 
                      cors_allowed_origins=effective_origins, # Use the same effective_origins
-                     logger=app.config.get('DEBUG', False),  # Use app.debug status for logger
-                     engineio_logger=app.config.get('DEBUG', False),  # Use app.debug status for engineio_logger
-                     async_mode='eventlet')
+                     logger=app.config.get('DEBUG', False),
+                     engineio_logger=app.config.get('DEBUG', False),
+                     async_mode=app.config.get('ASYNC_MODE', 'eventlet')) # Get async_mode from config or default
 
     # Import models to register them with SQLAlchemy
     from app.models import user, game
