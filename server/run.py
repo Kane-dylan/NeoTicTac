@@ -6,54 +6,28 @@ try:
     
     app = create_app()
 
-    # Create database tables and handle migrations
+    # Create database tables if they don't exist
     with app.app_context():
         try:
-            # Drop and recreate tables to fix schema issues
-            print("Recreating database tables...")
-            db.drop_all()
+            print("Initializing database...")
             db.create_all()
-            print("Database tables created successfully")
-            
-            # Check if any games exist
-            from app.models.game import Game
-            from app.models.user import User
-            
-            game_count = Game.query.count()
-            user_count = User.query.count()
-            
-            print(f"Current games in database: {game_count}")
-            print(f"Current users in database: {user_count}")
-            
-            if game_count == 0:
-                print("No games found in database. Users will need to create new games.")
-                
+            print("Database initialized successfully")
         except Exception as e:
             print(f"Database error: {e}")
             print("Server will continue but database operations may fail")
 
     if __name__ == '__main__':
-        print("Starting server on http://localhost:5000")
-        print("Socket.IO will be available at ws://localhost:5000")
-        print("Available endpoints:")
-        print("  - http://localhost:5000/api/auth/login")
-        print("  - http://localhost:5000/api/auth/register") 
-        print("  - http://localhost:5000/api/game/active")
-        print("  - http://localhost:5000/api/game/create")
         
         try:
-            print("Starting socketio server...")
             socketio.run(
                 app, 
                 host='0.0.0.0', 
                 port=5000, 
                 debug=True,
-                allow_unsafe_werkzeug=True  # Allow for development
+                allow_unsafe_werkzeug=True
             )
         except Exception as e:
             print(f"Failed to start server: {e}")
-            import traceback
-            traceback.print_exc()
             
 except ImportError as e:
     print(f"Import error: {e}")
