@@ -75,7 +75,6 @@ export const SocketProvider = ({ children }) => {
       setSocket(null);
       setConnected(false);
     }
-
     console.log("Creating new socket connection");
     const newSocketInstance = io(
       import.meta.env.VITE_SOCKET_URL || "http://localhost:5000",
@@ -86,10 +85,13 @@ export const SocketProvider = ({ children }) => {
         transports: ["websocket", "polling"],
         forceNew: true,
         reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 2000,
-        timeout: 10000,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
         autoConnect: true,
+        upgrade: true,
+        rememberUpgrade: true,
       }
     );
 
