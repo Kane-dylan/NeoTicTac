@@ -27,6 +27,8 @@ const GameRoom = () => {
   const [connectionStatus, setConnectionStatus] = useState("connecting");
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [lastMoveTimestamp, setLastMoveTimestamp] = useState(null);
+  const [restartRequested, setRestartRequested] = useState(false);
+  const [restartRequestedBy, setRestartRequestedBy] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -150,6 +152,49 @@ const GameRoom = () => {
         }
       });
 
+      // Restart game handlers
+      socket.on("restart_requested", (data) => {
+        console.log("Restart requested:", data);
+        setRestartRequested(true);
+        setRestartRequestedBy(data.requesting_player);
+
+        if (data.requesting_player === currentPlayer) {
+          setError("Restart request sent! Waiting for other player...");
+        } else {
+          setError(`${data.requesting_player} wants to restart the game.`);
+        }
+      });
+
+      socket.on("game_restarted", (data) => {
+        console.log("Game restarted:", data);
+        setGame(data.game);
+        setRestartRequested(false);
+        setRestartRequestedBy(null);
+        setError("🔄 Game has been restarted!");
+        setTimeout(() => setError(""), 3000);
+      });
+
+      // Game deletion handlers
+      socket.on("game_deleted", (data) => {
+        console.log("Game deleted:", data);
+        setError(
+          `🗑️ Game deleted by ${data.deleted_by}. Redirecting to lobby...`
+        );
+        setTimeout(() => {
+          navigate("/lobby");
+        }, 3000);
+      });
+
+      socket.on("game_auto_deleted", (data) => {
+        console.log("Game auto-deleted:", data);
+        setError(
+          "🧹 Game automatically deleted due to inactivity. Redirecting to lobby..."
+        );
+        setTimeout(() => {
+          navigate("/lobby");
+        }, 3000);
+      });
+
       // Socket errors
       socket.on("error", (error) => {
         console.error("Socket error:", error);
@@ -214,6 +259,10 @@ const GameRoom = () => {
           "receive_message",
           "user_typing",
           "game_over",
+          "restart_requested",
+          "game_restarted",
+          "game_deleted",
+          "game_auto_deleted",
           "error",
           "connect",
           "disconnect",
@@ -313,6 +362,47 @@ const GameRoom = () => {
     }
   };
 
+  const requestGameRestart = () => {
+    if (socket && currentPlayer) {
+      socket.emit("request_game_restart", {
+        room: gameId,
+        player: currentPlayer,
+      });
+    }
+  };
+
+  const acceptGameRestart = () => {
+    if (socket && currentPlayer) {
+      socket.emit("accept_restart", {
+        room: gameId,
+        player: currentPlayer,
+      });
+      setRestartRequested(false);
+      setRestartRequestedBy(null);
+      setError("Restart accepted! Waiting for game to restart...");
+    }
+  };
+
+  const deleteGame = () => {
+    if (socket && currentPlayer) {
+      socket.emit("delete_finished_game", {
+        room: gameId,
+        player: currentPlayer,
+      });
+    }
+  };
+
+  const reloadConnection = () => {
+    if (socket) {
+      // Force disconnect and reconnect
+      socket.disconnect();
+      setTimeout(() => {
+        socket.connect();
+      }, 1000);
+    }
+    setError("Reloading connection...");
+  };
+
   const leaveGame = () => {
     navigate("/lobby");
   };
@@ -374,12 +464,22 @@ const GameRoom = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Game Room: {gameId}</h1>
-        <button
-          className="bg-red-500 text-white py-1 px-3 rounded hover:bg-red-600"
-          onClick={leaveGame}
-        >
-          Leave Game
-        </button>
+        <div className="flex gap-2">
+          {connectionStatus === "disconnected" && (
+            <button
+              className="bg-yellow-500 text-white py-1 px-3 rounded hover:bg-yellow-600"
+              onClick={reloadConnection}
+            >
+              🔄 Reload Connection
+            </button>
+          )}
+          <button
+            className="bg-red-500 text-white py-1 px-3 rounded hover:bg-red-600"
+            onClick={leaveGame}
+          >
+            Leave Game
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -396,13 +496,97 @@ const GameRoom = () => {
         </div>
       )}
 
-      {game.winner && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 p-3 rounded mb-4">
-          {game.is_draw
-            ? "Game ended in a draw!"
-            : `Player ${game.winner} wins!`}
+      {(game.winner || game.is_draw) && (
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 p-4 rounded mb-4">
+          <div className="flex flex-col space-y-3">
+            <div className="text-center text-lg font-semibold">
+              {game.is_draw
+                ? "🤝 Game ended in a draw!"
+                : `🎉 ${
+                    game.winner === "X" ? game.player_x : game.player_o
+                  } (Player ${game.winner}) wins!`}
+            </div>
+
+            {/* Show restart request status if pending */}
+            {restartRequested && (
+              <div className="text-center text-sm">
+                {restartRequestedBy === currentPlayer
+                  ? "⏳ Waiting for opponent to accept restart..."
+                  : `⏳ ${restartRequestedBy} has requested a restart`}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex justify-center gap-2">
+              {(currentPlayer === game.player_x ||
+                currentPlayer === game.player_o) &&
+                !restartRequested && (
+                  <button
+                    className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
+                    onClick={requestGameRestart}
+                  >
+                    🔄 Play Again
+                  </button>
+                )}
+
+              {(currentPlayer === game.player_x ||
+                currentPlayer === game.player_o) && (
+                <button
+                  className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 transition-colors"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Are you sure you want to delete this game? This action cannot be undone."
+                      )
+                    ) {
+                      deleteGame();
+                    }
+                  }}
+                >
+                  🗑️ Delete Game
+                </button>
+              )}
+
+              <button
+                className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors"
+                onClick={() => navigate("/lobby")}
+              >
+                🏠 Back to Lobby
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Show restart request notification */}
+      {restartRequested &&
+        restartRequestedBy &&
+        restartRequestedBy !== currentPlayer && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 p-4 rounded mb-4">
+            <div className="flex justify-between items-center">
+              <div>🔄 {restartRequestedBy} wants to restart the game</div>
+              <div className="flex gap-2">
+                <button
+                  className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors"
+                  onClick={acceptGameRestart}
+                >
+                  ✅ Accept
+                </button>
+                <button
+                  className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+                  onClick={() => {
+                    setRestartRequested(false);
+                    setRestartRequestedBy(null);
+                    setError("Restart request declined");
+                    setTimeout(() => setError(""), 2000);
+                  }}
+                >
+                  ❌ Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
@@ -410,7 +594,7 @@ const GameRoom = () => {
 
           {/* Connection Status Indicator */}
           <div
-            className={`mb-2 p-2 rounded text-sm ${
+            className={`mb-3 p-3 rounded flex justify-between items-center ${
               connectionStatus === "connected"
                 ? "bg-green-100 text-green-700"
                 : connectionStatus === "disconnected"
@@ -418,7 +602,17 @@ const GameRoom = () => {
                 : "bg-yellow-100 text-yellow-700"
             }`}
           >
-            Status: {connectionStatus}
+            <span className="text-sm font-medium">
+              Connection: {connectionStatus}
+            </span>
+            {connectionStatus === "disconnected" && (
+              <button
+                className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+                onClick={reloadConnection}
+              >
+                🔄 Reload
+              </button>
+            )}
           </div>
 
           <div className="space-y-2">

@@ -336,3 +336,183 @@ def register_socket_handlers(socketio):
             'user': data['user'],
             'is_typing': data['is_typing']
         }, room=room_id, include_self=False)
+
+    @socketio.on('request_game_restart')
+    def on_request_game_restart(data):
+        game_id = data['room']
+        player = data.get('player')
+        room_name = f"game_{game_id}"
+        
+        print(f"Game restart requested by {player} for game {game_id}")
+        
+        try:
+            game = Game.query.get(game_id)
+            if not game:
+                emit('error', {'message': 'Game not found'})
+                return
+            
+            # Only allow restart if game is completed
+            if not (game.winner or game.is_draw):
+                emit('error', {'message': 'Game is still in progress'})
+                return
+            
+            # Check if player is one of the game participants
+            if player not in [game.player_x, game.player_o]:
+                emit('error', {'message': 'Only game players can request restart'})
+                return
+            
+            # Initialize restart votes if not exists
+            if game_id not in game_rooms:
+                game_rooms[game_id] = {'players': set(), 'spectators': set(), 'room_name': room_name}
+            
+            if 'restart_votes' not in game_rooms[game_id]:
+                game_rooms[game_id]['restart_votes'] = set()
+            
+            # Store restart vote
+            game_rooms[game_id]['restart_votes'].add(player)
+            
+            # Determine other player
+            other_player = game.player_o if player == game.player_x else game.player_x
+            
+            print(f"Restart votes: {game_rooms[game_id]['restart_votes']}, needed: 2")
+            
+            # Check if both players voted for restart
+            if len(game_rooms[game_id]['restart_votes']) >= 2:
+                # Both players agreed, restart the game
+                game.board_data = [''] * 9
+                game.current_turn = 'X'
+                game.winner = None
+                game.is_draw = False
+                
+                # Clear restart votes
+                game_rooms[game_id]['restart_votes'] = set()
+                
+                db.session.commit()
+                
+                # Notify all players that game restarted
+                emit('game_restarted', {
+                    'game': game.to_dict(),
+                    'message': 'Game has been restarted by mutual agreement!'
+                }, room=room_name)
+                
+                emit('game_state_update', {
+                    'game': game.to_dict(),
+                    'restart': True
+                }, room=room_name)
+                
+                print(f"Game {game_id} has been restarted by mutual agreement")
+            else:
+                # First vote, notify other player about restart request
+                emit('restart_requested', {
+                    'requesting_player': player,
+                    'other_player': other_player,
+                    'votes_needed': 2 - len(game_rooms[game_id]['restart_votes']),
+                    'message': f'{player} wants to restart the game. Waiting for {other_player} to accept.'
+                }, room=room_name)
+                
+                print(f"Restart request sent to {other_player}, waiting for acceptance")
+            
+        except Exception as e:
+            print(f"Error restarting game: {e}")
+            db.session.rollback()
+            emit('error', {'message': 'Failed to restart game'})
+
+    @socketio.on('accept_restart')
+    def on_accept_restart(data):
+        # This will trigger the same voting logic as request_game_restart
+        print(f"Restart accepted by {data.get('player')} for game {data['room']}")
+        on_request_game_restart(data)
+
+    @socketio.on('delete_finished_game')
+    def on_delete_finished_game(data):
+        game_id = data['room']
+        player = data.get('player')
+        
+        print(f"Game deletion requested by {player} for game {game_id}")
+        
+        try:
+            game = Game.query.get(game_id)
+            if not game:
+                emit('error', {'message': 'Game not found'})
+                return
+            
+            # Only allow deletion if game is completed
+            if not (game.winner or game.is_draw):
+                emit('error', {'message': 'Cannot delete game in progress'})
+                return
+            
+            # Check if player is one of the game participants
+            if player not in [game.player_x, game.player_o]:
+                emit('error', {'message': 'Only game players can delete the game'})
+                return
+            
+            # Store game info for logging
+            game_info = {
+                'id': game.id,
+                'player_x': game.player_x,
+                'player_o': game.player_o,
+                'winner': game.winner,
+                'is_draw': game.is_draw
+            }
+            
+            # Delete the game from database
+            db.session.delete(game)
+            db.session.commit()
+            
+            # Clean up room tracking
+            if game_id in game_rooms:
+                del game_rooms[game_id]
+            
+            # Notify all players in the room
+            room_name = f"game_{game_id}"
+            emit('game_deleted', {
+                'game_id': game_id,
+                'message': f'Game has been deleted by {player}',
+                'deleted_by': player,
+                'redirect_to_lobby': True
+            }, room=room_name)
+            
+            print(f"Game {game_id} deleted by {player}. Game info: {game_info}")
+            
+        except Exception as e:
+            print(f"Error deleting game {game_id}: {e}")
+            db.session.rollback()
+            emit('error', {'message': 'Failed to delete game. Please try again.'})
+
+def cleanup_old_games():
+    """Background task to clean up old finished games"""
+    try:
+        from datetime import datetime, timedelta
+        
+        # Delete games that finished more than 24 hours ago
+        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        
+        old_games = Game.query.filter(
+            (Game.winner.isnot(None)) | (Game.is_draw == True),
+            Game.updated_at < cutoff_time
+        ).all()
+        
+        for game in old_games:
+            print(f"Auto-deleting old game {game.id} (finished: {game.updated_at})")
+            
+            # Notify if anyone is still in the room
+            room_name = f"game_{game.id}"
+            socketio.emit('game_auto_deleted', {
+                'game_id': game.id,
+                'message': 'Game automatically deleted due to inactivity',
+                'redirect_to_lobby': True
+            }, room=room_name)
+            
+            # Clean up tracking
+            if game.id in game_rooms:
+                del game_rooms[game.id]
+            
+            db.session.delete(game)
+        
+        if old_games:
+            db.session.commit()
+            print(f"Cleaned up {len(old_games)} old finished games")
+            
+    except Exception as e:
+        print(f"Error during game cleanup: {e}")
+        db.session.rollback()
