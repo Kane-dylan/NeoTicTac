@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "vercel --prod",
+    "deploy:staging": "vercel",
+    "verify": "node verify-deployment.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.8",

@@ -5,20 +5,27 @@ load_dotenv()
 try:
     from app import create_app, socketio, db
     
+    # Create the app instance
     app = create_app()
 
-    # Create database tables if they don't exist
-    with app.app_context():
-        try:
-            print("Initializing database...")
-            db.create_all()
-            print("Database initialized successfully")
-        except Exception as e:
-            print(f"Database error: {e}")
-            print("Server will continue but database operations may fail")
+    # Initialize database tables
+    def init_db():
+        """Initialize database tables"""
+        with app.app_context():
+            try:
+                print("Initializing database...")
+                db.create_all()
+                print("Database initialized successfully")
+            except Exception as e:
+                print(f"Database error: {e}")
+                print("Server will continue but database operations may fail")
+
+    # Initialize database on startup
+    init_db()
 
     if __name__ == '__main__':
-        # Development server
+        # Development server only
+        print("Starting development server...")
         try:
             socketio.run(
                 app, 
@@ -29,13 +36,20 @@ try:
             )
         except Exception as e:
             print(f"Failed to start server: {e}")
-    else:
-        # Production server (for Railway/Heroku)
-        print("Starting production server...")
+    
+    # For production (Gunicorn will import 'app' from this module)
+    # This makes the 'app' variable available to Gunicorn
             
 except ImportError as e:
     print(f"Import error: {e}")
     print("Please install required dependencies:")
-    print("pip install flask flask-cors flask-sqlalchemy flask-migrate flask-jwt-extended flask-socketio python-dotenv")
+    print("pip install flask flask-cors flask-sqlalchemy flask-migrate flask-jwt-extended flask-socketio python-dotenv psycopg2-binary")
 except Exception as e:
     print(f"Startup error: {e}")
+    # Create a dummy app for Gunicorn if there's an error
+    from flask import Flask
+    app = Flask(__name__)
+    
+    @app.route('/health')
+    def health():
+        return {'status': 'error', 'message': 'Server failed to initialize properly'}
