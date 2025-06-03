@@ -20,6 +20,7 @@ class Config:
     CORS_ORIGINS = [
         "http://localhost:5173",  # Vite dev server
         "http://localhost:5174",  # Alternative dev port
-        "https://*.vercel.app",   # Vercel deployments
+        "https://tic-tac-toe-ten-murex-86.vercel.app", # Specific Vercel deployment
+        "https://*.vercel.app",   # Vercel deployments (kept for broader matching)
         os.getenv('CLIENT_URL', 'http://localhost:5173')  # Custom client URL
     ]
