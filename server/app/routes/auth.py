@@ -4,8 +4,49 @@ from app import db
 from flask_jwt_extended import create_access_token
 import datetime
 import traceback
+import os
+from sqlalchemy import create_engine
 
 bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+
+def ensure_database_connection():
+    """Ensure database connection is working, fallback to SQLite if needed"""
+    try:
+        # Test current connection
+        db.session.execute(db.text('SELECT 1'))
+        current_app.logger.info("Database connection verified")
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Database connection failed: {e}")
+        
+        # Try to fallback to SQLite if in production
+        if os.getenv('USE_SQLITE_PRODUCTION') == 'true' or os.getenv('FLASK_ENV') == 'production':
+            try:
+                current_app.logger.info("Attempting SQLite fallback...")
+                sqlite_uri = 'sqlite:///instance/tictactoe.db'
+                
+                # Update database URI
+                current_app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
+                
+                # Create SQLite engine
+                sqlite_engine = create_engine(sqlite_uri)
+                db.engine = sqlite_engine
+                
+                # Test SQLite connection
+                db.session.execute(db.text('SELECT 1'))
+                current_app.logger.info("SQLite fallback successful")
+                
+                # Ensure tables exist
+                db.create_all()
+                current_app.logger.info("SQLite tables created/verified")
+                return True
+                
+            except Exception as sqlite_error:
+                current_app.logger.error(f"SQLite fallback failed: {sqlite_error}")
+                return False
+        else:
+            current_app.logger.error("Database connection failed and fallback not enabled")
+            return False
 
 @bp.route('/register', methods=['POST'])
 def register():
@@ -17,16 +58,10 @@ def register():
         if not data or 'username' not in data or 'password' not in data:
             current_app.logger.warning("Missing username or password in request")
             return jsonify({'msg': 'Username and password required'}), 400
-        
-        # Test database connection first
-        try:
-            current_app.logger.info("Testing database connection...")
-            # Simple database test
-            db.session.execute(db.text('SELECT 1'))
-            current_app.logger.info("Database connection verified")
-        except Exception as db_test_error:
-            current_app.logger.error(f"Database connection failed: {db_test_error}")
-            return jsonify({'msg': 'Database service temporarily unavailable', 'error': str(db_test_error)}), 503
+          # Test database connection first
+        if not ensure_database_connection():
+            current_app.logger.error("Database connection could not be established")
+            return jsonify({'msg': 'Database service temporarily unavailable'}), 503
         
         # Check if user exists
         try:
@@ -75,9 +110,13 @@ def login():
         
         if not data or 'username' not in data or 'password' not in data:
             current_app.logger.warning("Missing username or password in login request")
-            return jsonify({'msg': 'Username and password required'}), 400
-        
+            return jsonify({'msg': 'Username and password required'}), 400        
         try:
+            current_app.logger.info("Ensuring database connection...")
+            if not ensure_database_connection():
+                current_app.logger.error("Database connection could not be established for login")
+                return jsonify({'msg': 'Database service temporarily unavailable'}), 503
+                
             current_app.logger.info("Querying database for user...")
             user = User.query.filter_by(username=data['username']).first()
             current_app.logger.info("Database query completed")
@@ -139,12 +178,3 @@ def simple_status():
         'message': 'Tic-Tac-Toe API is operational',
         'timestamp': datetime.datetime.utcnow().isoformat()
     }), 200
-        
-    except Exception as e:
-        current_app.logger.error(f"Health check failed: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Health check failed',
-            'error': str(e),
-            'timestamp': datetime.datetime.utcnow().isoformat()
-        }), 500
