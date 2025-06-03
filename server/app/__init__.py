@@ -1,3 +1,7 @@
+import os
+import logging
+import time
+import threading
 from flask import Flask
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -5,9 +9,6 @@ from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, decode_token
 from flask_socketio import SocketIO
 from jwt.exceptions import DecodeError, InvalidTokenError
-import threading
-import time
-import os
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -18,24 +19,28 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
-    # Initialize logging
-    if not app.debug:
-        import logging
-        from logging.handlers import RotatingFileHandler
-        # You might want to configure the log file path and level
-        # For Render, stdout/stderr logging is usually preferred.
-        # This is an example for file-based logging if needed.
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
-        file_handler = RotatingFileHandler('logs/tictactoe.log', maxBytes=10240, backupCount=10)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        app.logger.setLevel(logging.INFO)
-        app.logger.info('Tic Tac Toe App startup')
+    # Configure basic logging to output to console (stdout/stderr)
+    # This is generally preferred for platforms like Render.com
+    log_format = '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    logging.basicConfig(level=logging.INFO, format=log_format)
+    
+    # Example of adding file logging back, if needed, in addition to console:
+    # if not app.debug:
+    #     if not os.path.exists('logs'):
+    #         try:
+    #             os.mkdir('logs')
+    #             # Use app.logger here if it's already available, or root logger
+    #             logging.info("Created logs directory.") 
+    #         except OSError as e:
+    #             logging.error(f"Could not create logs directory: {e}")
+    #     if os.path.exists('logs'): # Check if directory exists or was created
+    #         from logging.handlers import RotatingFileHandler
+    #         file_handler = RotatingFileHandler('logs/tictactoe.log', maxBytes=10240, backupCount=10)
+    #         file_handler.setFormatter(logging.Formatter(log_format))
+    #         file_handler.setLevel(logging.INFO)
+    #         app.logger.addHandler(file_handler) # Add to Flask's app logger
 
+    app.logger.info('Tic Tac Toe App startup')
     app.logger.info(f"Flask App Name: {app.name}")
     app.logger.info(f"CORS_ORIGINS from config: {app.config.get('CORS_ORIGINS')}")
     app.logger.info(f"DATABASE_URL from config: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
@@ -53,9 +58,9 @@ def create_app():
     default_required_origins = [
         "https://tic-tac-toe-ten-murex-86.vercel.app",  # Your Vercel deployment
         "http://localhost:5173",                      # Common Vite dev server
-        "http://localhost:3000",                      # Common React dev server
+        "http://localhost:5000",                      # Common React dev server
         "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:5000"
     ]
     
     # Combine configured origins with default required origins, ensuring no duplicates
@@ -122,19 +127,21 @@ def create_app():
     if not app.debug or os.getenv('ENABLE_CLEANUP', 'false').lower() == 'true':
         def start_cleanup_scheduler():
             """Start the background cleanup task"""
-            def cleanup_scheduler():
+            def cleanup_scheduler_task(): # Renamed for clarity
+                app.logger.info("Cleanup scheduler thread started.")
                 while True:
                     try:
+                        app.logger.info("Cleanup scheduler running periodic task (placeholder).")
+                        # TODO: Implement actual cleanup logic here
+                        # e.g., with app.app_context(): game_operations.clean_inactive_games()
                         time.sleep(3600)  # Run every hour
-                        with app.app_context():
-                            from app.sockets.handlers import cleanup_old_games
-                            cleanup_old_games()
                     except Exception as e:
-                        print(f"Error in cleanup scheduler: {e}")
+                        app.logger.error(f"Error in cleanup scheduler: {e}", exc_info=True)
+                        time.sleep(60) # Avoid busy-looping on repeated errors
             
-            cleanup_thread = threading.Thread(target=cleanup_scheduler, daemon=True)
+            cleanup_thread = threading.Thread(target=cleanup_scheduler_task, daemon=True)
             cleanup_thread.start()
-            print("Game cleanup scheduler started (runs every hour)")
+            app.logger.info("Game cleanup scheduler initiated.")
         
         # Start the cleanup scheduler
         start_cleanup_scheduler()

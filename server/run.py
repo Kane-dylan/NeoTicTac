@@ -6,18 +6,32 @@ try:
     from app import create_app, socketio, db
     
     # Create the app instance
-    app = create_app()
-
-    # Initialize database tables
+    app = create_app()    # Initialize database tables
     def init_db():
         """Initialize database tables"""
         with app.app_context():
             try:
                 print("Initializing database...")
+                print(f"Database URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
+                  # Test database connection
+                with db.engine.connect() as connection:
+                    connection.execute(db.text('SELECT 1'))
+                print("Database connection successful")
+                
+                # Create tables
                 db.create_all()
-                print("Database initialized successfully")
+                print("Database tables created successfully")
+                
+                # Test table creation by querying User table
+                from app.models.user import User
+                user_count = User.query.count()
+                print(f"User table accessible, current count: {user_count}")
+                
             except Exception as e:
                 print(f"Database error: {e}")
+                print(f"Database error type: {type(e)}")
+                import traceback
+                print(f"Full traceback: {traceback.format_exc()}")
                 print("Server will continue but database operations may fail")
 
     # Initialize database on startup
