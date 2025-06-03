@@ -12,17 +12,27 @@ def register():
     try:
         current_app.logger.info("Registration attempt started")
         data = request.get_json()
-        current_app.logger.info(f"Received data: {data}")
+        current_app.logger.info(f"Received data keys: {list(data.keys()) if data else 'None'}")
         
         if not data or 'username' not in data or 'password' not in data:
             current_app.logger.warning("Missing username or password in request")
             return jsonify({'msg': 'Username and password required'}), 400
         
-        # Test database connection
+        # Test database connection first
         try:
             current_app.logger.info("Testing database connection...")
+            # Simple database test
+            db.session.execute(db.text('SELECT 1'))
+            current_app.logger.info("Database connection verified")
+        except Exception as db_test_error:
+            current_app.logger.error(f"Database connection failed: {db_test_error}")
+            return jsonify({'msg': 'Database service temporarily unavailable', 'error': str(db_test_error)}), 503
+        
+        # Check if user exists
+        try:
+            current_app.logger.info(f"Checking if user {data['username']} exists...")
             existing_user = User.query.filter_by(username=data['username']).first()
-            current_app.logger.info("Database query successful")
+            current_app.logger.info("User existence check successful")
             
             if existing_user:
                 current_app.logger.info(f"User {data['username']} already exists")
@@ -95,7 +105,7 @@ def health_check():
     """Health check endpoint for Railway"""
     try:
         current_app.logger.info("Health check endpoint accessed")
-          # Test database connection
+        # Test database connection
         try:
             with db.engine.connect() as connection:
                 connection.execute(db.text('SELECT 1'))
@@ -111,6 +121,24 @@ def health_check():
             'database': db_status,
             'timestamp': datetime.datetime.utcnow().isoformat()
         }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Health check failed',
+            'error': str(e),
+            'timestamp': datetime.datetime.utcnow().isoformat()
+        }), 500
+
+@bp.route('/status', methods=['GET'])
+def simple_status():
+    """Simple status endpoint that doesn't require database"""
+    return jsonify({
+        'status': 'running',
+        'message': 'Tic-Tac-Toe API is operational',
+        'timestamp': datetime.datetime.utcnow().isoformat()
+    }), 200
         
     except Exception as e:
         current_app.logger.error(f"Health check failed: {str(e)}")
