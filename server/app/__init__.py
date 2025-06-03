@@ -7,11 +7,12 @@ from flask_socketio import SocketIO
 from jwt.exceptions import DecodeError, InvalidTokenError
 import threading
 import time
+import os
 
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
-socketio = SocketIO(cors_allowed_origins="*")
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
@@ -20,7 +21,13 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app)
+    
+    # Enhanced CORS configuration for production
+    CORS(app, 
+         origins=app.config.get('CORS_ORIGINS', ['*']),
+         allow_headers=['Content-Type', 'Authorization'],
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+         supports_credentials=True)
     
     # Enhanced socket initialization with better authentication handling
     @socketio.on('connect')
@@ -50,7 +57,14 @@ def create_app():
             # Allow connection but log the error
             return True
     
-    socketio.init_app(app)    # Import models to register them with SQLAlchemy
+    # Initialize SocketIO with production settings
+    socketio.init_app(app, 
+                     cors_allowed_origins=app.config.get('CORS_ORIGINS', ['*']),
+                     logger=False,  # Disable in production
+                     engineio_logger=False,  # Disable in production
+                     async_mode='eventlet')
+
+    # Import models to register them with SQLAlchemy
     from app.models import user, game
 
     from app.routes import auth, game
@@ -60,24 +74,25 @@ def create_app():
     from app.sockets.handlers import register_socket_handlers
     register_socket_handlers(socketio)
 
-    # Start background cleanup task
-    def start_cleanup_scheduler():
-        """Start the background cleanup task"""
-        def cleanup_scheduler():
-            while True:
-                try:
-                    time.sleep(3600)  # Run every hour
-                    with app.app_context():
-                        from app.sockets.handlers import cleanup_old_games
-                        cleanup_old_games()
-                except Exception as e:
-                    print(f"Error in cleanup scheduler: {e}")
+    # Start background cleanup task only in production or when explicitly enabled
+    if not app.debug or os.getenv('ENABLE_CLEANUP', 'false').lower() == 'true':
+        def start_cleanup_scheduler():
+            """Start the background cleanup task"""
+            def cleanup_scheduler():
+                while True:
+                    try:
+                        time.sleep(3600)  # Run every hour
+                        with app.app_context():
+                            from app.sockets.handlers import cleanup_old_games
+                            cleanup_old_games()
+                    except Exception as e:
+                        print(f"Error in cleanup scheduler: {e}")
+            
+            cleanup_thread = threading.Thread(target=cleanup_scheduler, daemon=True)
+            cleanup_thread.start()
+            print("Game cleanup scheduler started (runs every hour)")
         
-        cleanup_thread = threading.Thread(target=cleanup_scheduler, daemon=True)
-        cleanup_thread.start()
-        print("Game cleanup scheduler started (runs every hour)")
-    
-    # Start the cleanup scheduler
-    start_cleanup_scheduler()
+        # Start the cleanup scheduler
+        start_cleanup_scheduler()
 
     return app

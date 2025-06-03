@@ -45,3 +45,12 @@ def login():
         
     except Exception as e:
         return jsonify({'msg': 'Login failed', 'error': str(e)}), 500
+
+@bp.route('/check', methods=['GET'])
+def health_check():
+    """Health check endpoint for Railway"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'Tic-Tac-Toe API is running',
+        'timestamp': datetime.datetime.utcnow().isoformat()
+    }), 200

@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import os
 load_dotenv()
 
 try:
@@ -17,17 +18,20 @@ try:
             print("Server will continue but database operations may fail")
 
     if __name__ == '__main__':
-        
+        # Development server
         try:
             socketio.run(
                 app, 
                 host='0.0.0.0', 
-                port=5000, 
-                debug=True,
+                port=int(os.getenv('PORT', 5000)),
+                debug=os.getenv('FLASK_ENV') == 'development',
                 allow_unsafe_werkzeug=True
             )
         except Exception as e:
             print(f"Failed to start server: {e}")
+    else:
+        # Production server (for Railway/Heroku)
+        print("Starting production server...")
             
 except ImportError as e:
     print(f"Import error: {e}")
