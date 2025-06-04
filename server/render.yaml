@@ -3,5 +3,7 @@ services:
     name: tictactoe-backend
     env: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app --timeout 120 --log-level info
+    startCommand: |
+      python run_migrations.py && \
+      gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app --timeout 120 --log-level info
     healthCheckPath: /

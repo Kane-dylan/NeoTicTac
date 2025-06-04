@@ -1,17 +1,21 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from app.models.user import User
 from app import db
 from flask_jwt_extended import create_access_token
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 import datetime
 import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 @bp.route('/register', methods=['POST'])
 def register():
     try:
-
         data = request.get_json()
         
         if not data or 'username' not in data or 'password' not in data:
@@ -21,11 +25,9 @@ def register():
         # Check if user exists
         existing_user = User.query.filter_by(username=data['username']).first()
         if existing_user:
-
             return jsonify({'msg': 'User already exists'}), 400
                 
         # Create new user
-
         user = User(username=data['username'])
         user.set_password(data['password'])
         
@@ -43,7 +45,6 @@ def register():
 @bp.route('/login', methods=['POST'])
 def login():
     try:
-
         data = request.get_json()
         
         if not data or 'username' not in data or 'password' not in data:
@@ -55,6 +56,14 @@ def login():
         if not user or not user.check_password(data['password']):
             current_app.logger.warning(f"Invalid login attempt for user: {data['username']}")
             return jsonify({'msg': 'Invalid credentials'}), 401
+
+        # Update last login timestamp
+        user.last_login = datetime.datetime.utcnow()
+        try:
+            db.session.commit()
+        except SQLAlchemyError as e:
+            logger.warning(f"Failed to update last_login timestamp: {e}")
+            db.session.rollback()
 
         token = create_access_token(identity=user.username, expires_delta=datetime.timedelta(days=1))
         return jsonify({'token': token})
@@ -87,8 +96,3 @@ def health_check():
             'database': f'failed: {str(e)}',
             'timestamp': datetime.datetime.utcnow().isoformat()
         }), 500
-    return jsonify({
-        'status': 'running',
-        'message': 'Tic-Tac-Toe API is operational',
-        'timestamp': datetime.datetime.utcnow().isoformat()
-    }), 200
