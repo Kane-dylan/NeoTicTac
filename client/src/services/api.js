@@ -29,16 +29,24 @@ api.interceptors.response.use(
       data: error.response?.data,
       message: error.message,
     });
-    
+
     // Handle specific error cases
     if (error.response?.status === 404) {
       // Not found - let component handle
-    } else if (error.response?.status === 401 || error.response?.status === 422) {
+    } else if (
+      error.response?.status === 401 ||
+      error.response?.status === 422
+    ) {
       // Authentication/validation error - let component handle
     } else if (error.response?.status === 500) {
       // Server error - could be database connection issue
-      console.error("Server error detected - possibly database connection issue");
-    } else if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
+      console.error(
+        "Server error detected - possibly database connection issue"
+      );
+    } else if (
+      error.code === "NETWORK_ERROR" ||
+      error.code === "ECONNREFUSED"
+    ) {
       // Network connectivity issues
       console.error("Network connectivity issue detected");
     }
@@ -66,7 +74,6 @@ export const createGame = async () => {
 
 export const getGameDetails = async (gameId) => {
   try {
-
     const response = await api.get(`/game/${gameId}`);
     return response.data;
   } catch (error) {
