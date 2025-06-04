@@ -28,17 +28,15 @@ api.interceptors.response.use(
       statusText: error.response?.statusText,
       data: error.response?.data,
       message: error.message,
-    });
-
-    // Handle specific error cases
-    if (error.response?.status === 404) {
-      console.warn("Resource not found:", error.config?.url);
-    } else if (
-      error.response?.status === 401 ||
-      error.response?.status === 422
-    ) {
-      console.warn("Authentication error, consider redirecting to login");
-    }
+    });  // Handle specific error cases
+  if (error.response?.status === 404) {
+    // Not found - let component handle
+  } else if (
+    error.response?.status === 401 ||
+    error.response?.status === 422
+  ) {
+    // Authentication/validation error - let component handle
+  }
 
     return Promise.reject(error);
   }
@@ -63,7 +61,7 @@ export const createGame = async () => {
 
 export const getGameDetails = async (gameId) => {
   try {
-    console.log(`Fetching game details for ID: ${gameId}`);
+
     const response = await api.get(`/game/${gameId}`);
     return response.data;
   } catch (error) {

@@ -46,18 +46,16 @@ const Lobby = () => {
     // Setup socket event handling with cleanup
     const setupSocketListeners = () => {
       if (!socket || !socket.connected) {
-        console.warn("Socket not ready for lobby");
+
         return false;
       }
-
-      console.log("Setting up lobby socket listeners");
 
       // Join lobby room for real-time updates
       socket.emit("join_lobby");
 
       // Real-time lobby updates
       socket.on("lobby_games_update", (data) => {
-        console.log("Lobby games updated:", data);
+
         setGames(data.games || []);
       });
 
@@ -68,14 +66,11 @@ const Lobby = () => {
       });
 
       socket.on("game_started", (data) => {
-        console.log("Game started:", data.game_id);
+
         setGames((prevGames) =>
           prevGames.filter((game) => game.id !== data.game_id)
         );
-      });
-
-      socket.on("game_completed", (data) => {
-        console.log("Game completed:", data.game_id);
+      });      socket.on("game_completed", () => {
         // Refresh games list when a game is completed
         setTimeout(fetchGames, 1000);
       });
@@ -116,11 +111,9 @@ const Lobby = () => {
     }
 
     return () => {
-      if (socket) {
-        try {
-          socket.emit("leave_lobby");
-        } catch (error) {
-          console.warn("Error leaving lobby:", error);
+      if (socket) {        try {
+          socket.emit("leave_lobby");        } catch {
+          // Error leaving lobby - continue cleanup
         }
 
         // Clean up event listeners
@@ -134,11 +127,9 @@ const Lobby = () => {
           "disconnect",
         ];
 
-        events.forEach((event) => {
-          try {
-            socket.off(event);
-          } catch (error) {
-            console.warn(`Error removing ${event} listener:`, error);
+        events.forEach((event) => {          try {
+            socket.off(event);          } catch {
+            // Error removing event listener - continue cleanup
           }
         });
       }

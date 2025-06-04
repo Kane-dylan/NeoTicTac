@@ -10,7 +10,7 @@ bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 @bp.route('/register', methods=['POST'])
 def register():
     try:
-        current_app.logger.info("Registration attempt started")
+
         data = request.get_json()
         
         if not data or 'username' not in data or 'password' not in data:
@@ -20,17 +20,17 @@ def register():
         # Check if user exists
         existing_user = User.query.filter_by(username=data['username']).first()
         if existing_user:
-            current_app.logger.info(f"User {data['username']} already exists")
+
             return jsonify({'msg': 'User already exists'}), 400
                 
         # Create new user
-        current_app.logger.info(f"Creating new user: {data['username']}")
+
         user = User(username=data['username'])
         user.set_password(data['password'])
         
         db.session.add(user)
         db.session.commit()
-        current_app.logger.info(f"User {data['username']} registered successfully")
+
         return jsonify({'msg': 'User registered'}), 201
         
     except Exception as e:
@@ -42,7 +42,7 @@ def register():
 @bp.route('/login', methods=['POST'])
 def login():
     try:
-        current_app.logger.info("Login attempt started")
+
         data = request.get_json()
         
         if not data or 'username' not in data or 'password' not in data:
@@ -54,8 +54,7 @@ def login():
         if not user or not user.check_password(data['password']):
             current_app.logger.warning(f"Invalid login attempt for user: {data['username']}")
             return jsonify({'msg': 'Invalid credentials'}), 401
-            
-        current_app.logger.info(f"Successful login for user: {data['username']}")
+
         token = create_access_token(identity=user.username, expires_delta=datetime.timedelta(days=1))
         return jsonify({'token': token})
         

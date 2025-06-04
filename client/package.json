@@ -2,15 +2,11 @@
   "name": "client",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
-  "scripts": {
+  "type": "module",  "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "deploy": "vercel --prod",
-    "deploy:staging": "vercel",
-    "verify": "node verify-deployment.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.8",

@@ -27,10 +27,10 @@ export const SocketProvider = ({ children }) => {
   const updateAuthToken = useCallback((newToken) => {
     if (newToken) {
       localStorage.setItem("token", newToken);
-      console.log("Token set in localStorage by updateAuthToken");
+
     } else {
       localStorage.removeItem("token");
-      console.log("Token removed from localStorage by updateAuthToken");
+
     }
     setAuthToken(newToken);
   }, []);
@@ -39,8 +39,7 @@ export const SocketProvider = ({ children }) => {
   const setupHeartbeat = useCallback((socketInstance) => {
     const heartbeatInterval = setInterval(() => {
       if (socketInstance && socketInstance.connected) {
-        const start = Date.now();
-        socketInstance.emit("ping", start, (response) => {
+        const start = Date.now();        socketInstance.emit("ping", start, () => {
           const latency = Date.now() - start;
           if (latency < 100) {
             setConnectionHealth("good");
@@ -70,12 +69,12 @@ export const SocketProvider = ({ children }) => {
 
     // Disconnect existing socket
     if (socket) {
-      console.log("Disconnecting existing socket");
+
       socket.disconnect();
       setSocket(null);
       setConnected(false);
     }
-    console.log("Creating new socket connection");
+
     const newSocketInstance = io(
       import.meta.env.VITE_SOCKET_URL || "http://localhost:5000",
       {
@@ -96,17 +95,14 @@ export const SocketProvider = ({ children }) => {
     );
 
     newSocketInstance.on("connect", () => {
-      console.log(
-        "Socket connected successfully with ID:",
-        newSocketInstance.id
-      );
+
       setConnected(true);
       setReconnecting(false);
       setConnectionHealth("good");
     });
 
     newSocketInstance.on("disconnect", (reason) => {
-      console.log("Socket disconnected:", reason);
+
       setConnected(false);
       setConnectionHealth("disconnected");
 
@@ -117,21 +113,12 @@ export const SocketProvider = ({ children }) => {
         return;
       }
       setReconnecting(true);
-    });
-
-    newSocketInstance.on("reconnect", (attemptNumber) => {
-      console.log("Socket reconnected after", attemptNumber, "attempts");
+    });    newSocketInstance.on("reconnect", () => {
       setReconnecting(false);
       setConnectionHealth("good");
-    });
-
-    newSocketInstance.on("reconnect_attempt", (attemptNumber) => {
-      console.log("Reconnection attempt", attemptNumber);
+    });    newSocketInstance.on("reconnect_attempt", () => {
       setReconnecting(true);
-    });
-
-    newSocketInstance.on("reconnect_failed", () => {
-      console.log("Failed to reconnect to server");
+    });    newSocketInstance.on("reconnect_failed", () => {
       setReconnecting(false);
       setConnectionHealth("disconnected");
     });
@@ -140,10 +127,8 @@ export const SocketProvider = ({ children }) => {
       console.error("Socket connection error:", error.message);
       setConnected(false);
       setConnectionHealth("disconnected");
-    });
-
-    newSocketInstance.on("connection_confirmed", (data) => {
-      console.log("Connection confirmed for user:", data.username);
+    });    newSocketInstance.on("connection_confirmed", () => {
+      // Connection confirmed
     });
 
     setSocket(newSocketInstance);
@@ -151,7 +136,7 @@ export const SocketProvider = ({ children }) => {
     const cleanupHeartbeat = setupHeartbeat(newSocketInstance);
 
     return () => {
-      console.log("Cleaning up socket connection");
+
       connectionAttemptRef.current = false;
       cleanupHeartbeat();
 

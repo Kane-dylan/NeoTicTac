@@ -1,12 +1,44 @@
-# React + Vite
+# Tic-Tac-Toe Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based real-time multiplayer tic-tac-toe game client.
 
-Currently, two official plugins are available:
+## 🚀 Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Environment Variables
 
-## Expanding the ESLint configuration
+Create a `.env` file with:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```
+VITE_API_URL=https://your-backend-url.com/api
+VITE_SOCKET_URL=https://your-backend-url.com
+```
+
+### Installation
+
+```bash
+npm install
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Production Build
+
+```bash
+npm run build
+```
+
+## 🔧 Features
+
+- Real-time multiplayer gameplay
+- User authentication
+- Live chat during games
+- Responsive design with Tailwind CSS
+- WebSocket connectivity for real-time updates
+
+## 🚀 Deployment
+
+Configured for Vercel deployment with automatic builds from the `dist` folder.

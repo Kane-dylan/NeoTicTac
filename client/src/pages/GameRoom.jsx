@@ -23,10 +23,8 @@ const GameRoom = () => {
   const [messages, setMessages] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [connectionStatus, setConnectionStatus] = useState("connecting");
+  const [error, setError] = useState("");  const [connectionStatus, setConnectionStatus] = useState("connecting");
   const [typingUsers, setTypingUsers] = useState(new Set());
-  const [lastMoveTimestamp, setLastMoveTimestamp] = useState(null);
   const [restartRequested, setRestartRequested] = useState(false);
   const [restartRequestedBy, setRestartRequestedBy] = useState(null);
 
@@ -45,11 +43,10 @@ const GameRoom = () => {
     // Setup socket with retry logic
     const setupSocketListeners = () => {
       if (!socket || !socket.connected) {
-        console.warn("Socket not ready, will retry...");
+
         return false;
       }
 
-      console.log("Setting up socket listeners for GameRoom");
       setConnectionStatus("connected");
 
       // Join the game room
@@ -61,34 +58,26 @@ const GameRoom = () => {
 
       // Game state updates
       socket.on("game_state_update", (data) => {
-        console.log("Game state updated:", data);
+
         setGame(data.game);
-        setError("");
-
-        if (data.last_move) {
-          setLastMoveTimestamp(data.last_move.timestamp);
+        setError("");        if (data.last_move) {
+          // Track the last move for potential UI updates
         }
-      });
-
-      // Game ready notification
-      socket.on("game_ready", (data) => {
-        console.log("Game ready:", data);
+      });// Game ready notification
+      socket.on("game_ready", () => {
         setError("");
         // You can add visual/audio feedback here
-      });
-
-      // Move made by any player
+      });      // Move made by any player
       socket.on("move_made", (moveData) => {
-        console.log("Move made:", moveData);
         if (moveData.player !== currentPlayer) {
-          setLastMoveTimestamp(moveData.timestamp);
+          setGame(moveData.game);
           // Add visual feedback for opponent moves
         }
       });
 
       // Player joined the game
       socket.on("player_joined", (data) => {
-        console.log("Player joined:", data);
+
         if (data.game_ready && data.player !== currentPlayer) {
           setError(`${data.player} has joined the game! Game is ready.`);
           setTimeout(() => setError(""), 3000);
@@ -97,14 +86,14 @@ const GameRoom = () => {
 
       // Player left the game
       socket.on("player_left", (data) => {
-        console.log("Player left:", data.player);
+
         setError(`${data.player} has left the game`);
         setTimeout(() => setError(""), 5000);
       });
 
       // Player disconnected
       socket.on("player_disconnected", (data) => {
-        console.log("Player disconnected:", data.player);
+
         setError(`${data.player} has disconnected`);
       });
 
@@ -136,7 +125,7 @@ const GameRoom = () => {
 
       // Game over
       socket.on("game_over", (result) => {
-        console.log("Game over:", result);
+
         setGame((prev) => ({
           ...prev,
           winner: result.winner,
@@ -154,7 +143,7 @@ const GameRoom = () => {
 
       // Restart game handlers
       socket.on("restart_requested", (data) => {
-        console.log("Restart requested:", data);
+
         setRestartRequested(true);
         setRestartRequestedBy(data.requesting_player);
 
@@ -166,7 +155,7 @@ const GameRoom = () => {
       });
 
       socket.on("game_restarted", (data) => {
-        console.log("Game restarted:", data);
+
         setGame(data.game);
         setRestartRequested(false);
         setRestartRequestedBy(null);
@@ -176,17 +165,14 @@ const GameRoom = () => {
 
       // Game deletion handlers
       socket.on("game_deleted", (data) => {
-        console.log("Game deleted:", data);
+
         setError(
           `🗑️ Game deleted by ${data.deleted_by}. Redirecting to lobby...`
         );
         setTimeout(() => {
           navigate("/lobby");
         }, 3000);
-      });
-
-      socket.on("game_auto_deleted", (data) => {
-        console.log("Game auto-deleted:", data);
+      });      socket.on("game_auto_deleted", () => {
         setError(
           "🧹 Game automatically deleted due to inactivity. Redirecting to lobby..."
         );
@@ -205,7 +191,7 @@ const GameRoom = () => {
       socket.on("connect", () => {
         setConnectionStatus("connected");
         setError("");
-        console.log("Socket reconnected in GameRoom");
+
         // Re-join room on reconnect
         socket.emit("join_room", {
           room: gameId,
@@ -238,14 +224,12 @@ const GameRoom = () => {
 
     return () => {
       if (socket) {
-        try {
-          socket.emit("leave_room", {
+        try {          socket.emit("leave_room", {
             room: gameId,
             player: username,
             timestamp: new Date().toISOString(),
-          });
-        } catch (error) {
-          console.warn("Error leaving room:", error);
+          });        } catch {
+          // Error leaving room - continue cleanup
         }
 
         // Clean up all event listeners
@@ -268,11 +252,9 @@ const GameRoom = () => {
           "disconnect",
         ];
 
-        events.forEach((event) => {
-          try {
-            socket.off(event);
-          } catch (error) {
-            console.warn(`Error removing ${event} listener:`, error);
+        events.forEach((event) => {          try {
+            socket.off(event);          } catch {
+            // Error removing event listener - continue cleanup
           }
         });
       }
@@ -282,7 +264,7 @@ const GameRoom = () => {
   const fetchGameDetails = async () => {
     try {
       const gameData = await getGameDetails(gameId);
-      console.log("Fetched game data:", gameData);
+
       setGame(gameData);
       setError("");
     } catch (error) {
@@ -406,13 +388,6 @@ const GameRoom = () => {
   const leaveGame = () => {
     navigate("/lobby");
   };
-
-  const getPlayerSymbol = (player) => {
-    if (player === game.player_x) return "X";
-    if (player === game.player_o) return "O";
-    return "";
-  };
-
   const getCurrentPlayerRole = () => {
     if (currentPlayer === game.player_x) return "X";
     if (currentPlayer === game.player_o) return "O";
@@ -669,16 +644,6 @@ const GameRoom = () => {
               {typingUsers.size === 1 ? "is" : "are"} typing...
             </div>
           )}
-
-          {/* Debug info - remove in production */}
-          <div className="mt-4 text-xs text-gray-500">
-            <p>Current player: {currentPlayer}</p>
-            <p>Player X: {game.player_x}</p>
-            <p>Player O: {game.player_o}</p>
-            <p>Current turn: {game.current_turn}</p>
-            <p>My role: {getCurrentPlayerRole()}</p>
-            <p>Is my turn: {isCurrentPlayerTurn() ? "Yes" : "No"}</p>
-          </div>
         </div>
 
         <div className="flex items-center justify-center">
