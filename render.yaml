@@ -3,10 +3,11 @@ services:
     name: tictactoe-backend
     env: python
     buildCommand: |
+      cd server
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: |
-      gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app --timeout 120 --log-level info
+      cd server && gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:app --timeout 120 --log-level info
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
