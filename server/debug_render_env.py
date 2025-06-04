@@ -12,7 +12,7 @@ def print_render_env_vars():
     print("="*60)
     print("Copy these to your Render service Environment tab:")
     print("="*60)
-      env_vars = {
+    env_vars = {
         "SECRET_KEY": "your-secret-key-here",
         "JWT_SECRET_KEY": "your-jwt-secret-key-here",
         "DATABASE_URL": "postgresql://postgres:your-password@db.your-project-id.supabase.co:6543/postgres?pgbouncer=true",
