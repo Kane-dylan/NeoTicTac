@@ -40,17 +40,52 @@ def create_app():
     
     # Initialize extensions with app
     db.init_app(app)
-    jwt.init_app(app)
+    jwt.init_app(app)    # Configure CORS with flexible origin handling
+    import re
     
-    # Configure CORS
+    def check_origin(origin):
+        """Check if origin is allowed using both explicit list and patterns"""
+        if not origin:
+            return False
+            
+        cors_origins = app.config.get('CORS_ORIGINS', ['http://localhost:5173'])
+        
+        # Check explicit origins
+        if origin in cors_origins:
+            return True
+            
+        # Check patterns for Vercel deployments
+        vercel_patterns = [
+            r'https://.*-kane-dylans-projects\.vercel\.app$',
+            r'https://tic-tac-.*\.vercel\.app$'
+        ]
+        
+        for pattern in vercel_patterns:
+            if re.match(pattern, origin):
+                app.logger.info(f"Origin {origin} allowed by pattern {pattern}")
+                return True
+                
+        app.logger.warning(f"Origin {origin} not allowed")
+        return False
+    
+    # Get explicit allowed origins for CORS
+    cors_origins = app.config.get('CORS_ORIGINS', ['http://localhost:5173'])
+    
+    # For Flask-CORS, we need to be more permissive since it doesn't support functions
+    # Add common Vercel URLs to the explicit list
+    extended_cors_origins = cors_origins + [
+        'https://tic-tac-ayu2d3mcg-kane-dylans-projects.vercel.app',
+        'https://tic-tac-toe-ten-murex-86.vercel.app'
+    ]
+    
     CORS(app, 
-         origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']),
+         origins=extended_cors_origins,
          allow_headers=['Content-Type', 'Authorization', 'Access-Control-Allow-Credentials'],
          supports_credentials=True)
     
-    # Configure SocketIO
+    # Configure SocketIO with function-based origin checking
     socketio.init_app(app, 
-                     cors_allowed_origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']),
+                     cors_allowed_origins=check_origin,
                      logger=app.debug,
                      engineio_logger=app.debug)
 
