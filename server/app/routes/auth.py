@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from app.models.user import User
 from app import db
 from flask_jwt_extended import create_access_token
+from sqlalchemy import text
 import datetime
 import traceback
 
@@ -69,7 +70,7 @@ def health_check():
     try:
         # Test database connection
         with db.engine.connect() as connection:
-            connection.execute(db.text('SELECT 1'))
+            connection.execute(text('SELECT 1'))
         
         return jsonify({
             'status': 'healthy',

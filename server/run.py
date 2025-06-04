@@ -6,28 +6,41 @@ try:
     from app import create_app, socketio, db
     
     # Create the app instance
-    app = create_app()
-    
-    # Initialize database tables
+    app = create_app()    # Initialize database tables
     def init_db():
-        """Initialize database tables"""
+        """Initialize database tables with improved retry logic"""
         with app.app_context():
-            try:
-                db.create_all()
-                print("Database tables created successfully")
-            except Exception as e:
-                print(f"Database initialization error: {e}")
-                # For production, ensure we have a working database
-                if os.getenv('FLASK_ENV') != 'development':
-                    try:
-                        # Fallback to SQLite for emergency
-                        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tictactoe.db'
-                        from sqlalchemy import create_engine
-                        db.engine = create_engine('sqlite:///tictactoe.db')
-                        db.create_all()
-                        print("Fallback SQLite database created")
-                    except Exception as fallback_error:
-                        print(f"Fallback database failed: {fallback_error}")
+            max_retries = 5
+            retry_delay = 3
+            
+            for attempt in range(max_retries):
+                try:
+                    # Test connection with explicit text() wrapper for newer SQLAlchemy
+                    from sqlalchemy import text
+                    with db.engine.connect() as conn:
+                        result = conn.execute(text("SELECT 1"))
+                        result.close()
+                    
+                    # Create tables if connection successful
+                    db.create_all()
+                    app.logger.info("✅ Database tables created successfully")
+                    return True
+                    
+                except Exception as e:
+                    app.logger.error(f"❌ Database initialization attempt {attempt + 1} failed: {e}")
+                    
+                    if attempt < max_retries - 1:
+                        app.logger.info(f"⏳ Retrying in {retry_delay} seconds...")
+                        import time
+                        time.sleep(retry_delay)
+                        retry_delay = min(retry_delay * 1.5, 30)  # Exponential backoff with cap
+                    else:
+                        app.logger.error("❌ All connection attempts failed")
+                        # Don't modify URI in production - log the error and continue
+                        app.logger.warning("⚠️  Database unavailable - server will run with limited functionality")
+                        return False
+            
+            return False
 
     # Initialize database on startup
     init_db()

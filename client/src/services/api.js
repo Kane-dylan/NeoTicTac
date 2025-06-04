@@ -28,15 +28,20 @@ api.interceptors.response.use(
       statusText: error.response?.statusText,
       data: error.response?.data,
       message: error.message,
-    });  // Handle specific error cases
-  if (error.response?.status === 404) {
-    // Not found - let component handle
-  } else if (
-    error.response?.status === 401 ||
-    error.response?.status === 422
-  ) {
-    // Authentication/validation error - let component handle
-  }
+    });
+    
+    // Handle specific error cases
+    if (error.response?.status === 404) {
+      // Not found - let component handle
+    } else if (error.response?.status === 401 || error.response?.status === 422) {
+      // Authentication/validation error - let component handle
+    } else if (error.response?.status === 500) {
+      // Server error - could be database connection issue
+      console.error("Server error detected - possibly database connection issue");
+    } else if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNREFUSED') {
+      // Network connectivity issues
+      console.error("Network connectivity issue detected");
+    }
 
     return Promise.reject(error);
   }
@@ -77,6 +82,27 @@ export const getGameDetails = async (gameId) => {
 export const getActiveGames = async () => {
   const response = await api.get("/game/active");
   return response.data;
+};
+
+// 🔍 Health Check API
+export const checkServerHealth = async () => {
+  try {
+    const response = await api.get("/health");
+    return response.data;
+  } catch (error) {
+    console.error("Health check failed:", error);
+    throw error;
+  }
+};
+
+export const testDatabaseConnection = async () => {
+  try {
+    const response = await api.get("/api/test-db");
+    return response.data;
+  } catch (error) {
+    console.error("Database test failed:", error);
+    throw error;
+  }
 };
 
 export default api;

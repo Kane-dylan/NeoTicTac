@@ -5,29 +5,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_enhanced_database_url():
-    """Get enhanced database URL with production parameters"""
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        raise ValueError("DATABASE_URL environment variable is required")
-    
-    # Fix for newer SQLAlchemy versions
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-    
-    # Enhance with production-specific parameters
-    if not any(param in database_url for param in ['sslmode=', 'connect_timeout=', 'application_name=']):
-        separator = '&' if '?' in database_url else '?'
-        production_params = [
-            'sslmode=require',
-            'application_name=tictactoe-backend',
-            'connect_timeout=30',
-            'target_session_attrs=read-write'
-        ]
-        database_url = database_url + separator + '&'.join(production_params)
-    
-    return database_url
-
 class Config:
     """Production configuration for Supabase deployment"""
     
@@ -35,10 +12,35 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY')
     if not SECRET_KEY:
         raise ValueError("SECRET_KEY environment variable is required")
+      # Database configuration using class method
+    @classmethod
+    def get_database_url(cls):
+        """Get enhanced database URL with production parameters"""
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is required")
+        
+        # Fix for newer SQLAlchemy versions
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        
+        # Enhance with production-specific parameters
+        if not any(param in database_url for param in ['sslmode=', 'connect_timeout=', 'application_name=']):
+            separator = '&' if '?' in database_url else '?'
+            production_params = [
+                'sslmode=require',
+                'application_name=tictactoe-backend',
+                'connect_timeout=30',
+                'target_session_attrs=read-write'
+            ]
+            database_url = database_url + separator + '&'.join(production_params)
+        
+        return database_url
     
-    # Database configuration
-    SQLALCHEMY_DATABASE_URI = get_enhanced_database_url()
-    SQLALCHEMY_TRACK_MODIFICATIONS = False    # Connection pool settings optimized for production deployment
+    SQLALCHEMY_DATABASE_URI = get_database_url()
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Connection pool settings optimized for production deployment
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 3,
         'pool_recycle': 3600,
@@ -48,7 +50,8 @@ class Config:
         'connect_args': {
             'sslmode': 'require',
             'application_name': 'tictactoe-backend',
-            'connect_timeout': 30
+            'connect_timeout': 30,
+            'options': '-c default_transaction_isolation=read_committed -c statement_timeout=30000'
         }
     }
     
