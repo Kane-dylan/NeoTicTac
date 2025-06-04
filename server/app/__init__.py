@@ -22,15 +22,20 @@ def create_app():
         )
     
     app.logger.info('Tic Tac Toe App startup')
-    
-    # Log configuration details for debugging
+      # Validate and log configuration details
     try:
         from config import Config
+        # Validate configuration at runtime
+        Config.validate_config()
+        
         if hasattr(Config, 'log_configuration'):
             Config.log_configuration()
         app.logger.info(f"Database URI configured: {bool(app.config.get('SQLALCHEMY_DATABASE_URI'))}")
     except Exception as e:
-        app.logger.error(f"Config logging error: {e}")
+        app.logger.error(f"Config validation/logging error: {e}")
+        # Re-raise if it's a critical configuration error
+        if "environment variable is required" in str(e):
+            raise
     
     # Log Supabase status (optional feature)
     supabase_configured = bool(app.config.get('SUPABASE_URL')) and bool(app.config.get('SUPABASE_SERVICE_KEY'))
