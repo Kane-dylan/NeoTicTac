@@ -45,13 +45,21 @@ class Config:
         raise ValueError("JWT_SECRET_KEY environment variable is required")
     JWT_ACCESS_TOKEN_EXPIRES = False
     
-    # Supabase Configuration
+    # Supabase Configuration (optional - for additional features)
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY')
-    
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables are required")
     
     # CORS configuration
     CLIENT_URL = os.getenv('CLIENT_URL', 'https://tic-tac-toe-ten-murex-86.vercel.app')
     CORS_ORIGINS = [CLIENT_URL]
+    
+    @classmethod
+    def log_configuration(cls):
+        """Log configuration details for debugging"""
+        logger.info("=== Configuration Status ===")
+        logger.info(f"SECRET_KEY: {'SET' if cls.SECRET_KEY else 'NOT SET'}")
+        logger.info(f"DATABASE_URL: {'SET' if cls.DATABASE_URL else 'NOT SET'}")
+        logger.info(f"JWT_SECRET_KEY: {'SET' if cls.JWT_SECRET_KEY else 'NOT SET'}")
+        logger.info(f"CLIENT_URL: {cls.CLIENT_URL}")
+        logger.info(f"SUPABASE_URL: {'SET' if cls.SUPABASE_URL else 'NOT SET'}")
+        logger.info("=============================")

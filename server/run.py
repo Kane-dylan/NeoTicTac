@@ -14,6 +14,7 @@ try:
         with app.app_context():
             try:
                 db.create_all()
+                print("Database tables created successfully")
             except Exception as e:
                 print(f"Database initialization error: {e}")
                 # For production, ensure we have a working database
@@ -24,6 +25,7 @@ try:
                         from sqlalchemy import create_engine
                         db.engine = create_engine('sqlite:///tictactoe.db')
                         db.create_all()
+                        print("Fallback SQLite database created")
                     except Exception as fallback_error:
                         print(f"Fallback database failed: {fallback_error}")
 
@@ -31,14 +33,30 @@ try:
     init_db()
 
     if __name__ == '__main__':
-        # Development server only
-        socketio.run(
-            app, 
-            host='0.0.0.0', 
-            port=int(os.getenv('PORT', 5000)),
-            debug=os.getenv('FLASK_ENV') == 'development',
-            allow_unsafe_werkzeug=True
-        )
+        # Check if this is running in production (Render sets PORT)
+        port = int(os.getenv('PORT', 5000))
+        is_production = os.getenv('PORT') is not None
+        
+        if is_production:
+            print(f"Running in production mode on port {port}")
+            # Use socketio.run for production with proper settings
+            socketio.run(
+                app, 
+                host='0.0.0.0', 
+                port=port,
+                debug=False,
+                allow_unsafe_werkzeug=True
+            )
+        else:
+            print("Running in development mode")
+            # Development server
+            socketio.run(
+                app, 
+                host='0.0.0.0', 
+                port=port,
+                debug=os.getenv('FLASK_ENV') == 'development',
+                allow_unsafe_werkzeug=True
+            )
     
     # For production (Gunicorn will import 'app' from this module)
             

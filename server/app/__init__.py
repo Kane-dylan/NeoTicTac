@@ -14,22 +14,31 @@ socketio = SocketIO()
 def create_app():
     """Application factory pattern"""
     app = Flask(__name__)
-    app.config.from_object("config.Config")
-
-    # Configure logging
+    app.config.from_object("config.Config")    # Configure logging
     if not app.debug:
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
         )
-
+    
     app.logger.info('Tic Tac Toe App startup')
     
     # Log configuration details for debugging
-    from config import Config
-    Config.log_configuration()
-    app.logger.info(f"Database URI configured: {bool(app.config.get('SQLALCHEMY_DATABASE_URI'))}")
-    app.logger.info(f"Supabase URL configured: {bool(app.config.get('SUPABASE_URL'))}")    # Initialize extensions with app
+    try:
+        from config import Config
+        if hasattr(Config, 'log_configuration'):
+            Config.log_configuration()
+        app.logger.info(f"Database URI configured: {bool(app.config.get('SQLALCHEMY_DATABASE_URI'))}")
+    except Exception as e:
+        app.logger.error(f"Config logging error: {e}")
+    
+    # Log Supabase status (optional feature)
+    supabase_configured = bool(app.config.get('SUPABASE_URL')) and bool(app.config.get('SUPABASE_SERVICE_KEY'))
+    app.logger.info(f"Supabase configured: {supabase_configured}")
+    if not supabase_configured:
+        app.logger.info("Supabase not configured - using direct database connection only")
+    
+    # Initialize extensions with app
     db.init_app(app)
     jwt.init_app(app)
     
@@ -46,13 +55,21 @@ def create_app():
                      engineio_logger=app.debug)
 
     # Import models to register them with SQLAlchemy
-    from app.models import user, game
-
-    # Register blueprints
+    from app.models import user, game    # Register blueprints
     from app.routes.auth import bp as auth_bp
     from app.routes.game import bp as game_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(game_bp)
+
+    # Add health check endpoint for Render
+    @app.route('/')
+    @app.route('/health')
+    def health_check():
+        return {
+            'status': 'healthy',
+            'message': 'Tic-Tac-Toe API is running',
+            'database': 'connected' if db.engine else 'disconnected'
+        }, 200
 
     # Register socket handlers
     from app.sockets import handlers
