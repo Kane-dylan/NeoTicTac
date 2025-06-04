@@ -4,100 +4,38 @@ from app import db
 from flask_jwt_extended import create_access_token
 import datetime
 import traceback
-import os
-from sqlalchemy import create_engine
 
 bp = Blueprint('auth', __name__, url_prefix='/api/auth')
-
-def ensure_database_connection():
-    """Ensure database connection is working, fallback to SQLite if needed"""
-    try:
-        # Test current connection
-        db.session.execute(db.text('SELECT 1'))
-        current_app.logger.info("Database connection verified")
-        return True
-    except Exception as e:
-        current_app.logger.error(f"Database connection failed: {e}")
-        
-        # Try to fallback to SQLite if in production
-        if os.getenv('USE_SQLITE_PRODUCTION') == 'true' or os.getenv('FLASK_ENV') == 'production':
-            try:
-                current_app.logger.info("Attempting SQLite fallback...")
-                sqlite_uri = 'sqlite:///instance/tictactoe.db'
-                
-                # Update database URI
-                current_app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
-                
-                # Create SQLite engine
-                sqlite_engine = create_engine(sqlite_uri)
-                db.engine = sqlite_engine
-                
-                # Test SQLite connection
-                db.session.execute(db.text('SELECT 1'))
-                current_app.logger.info("SQLite fallback successful")
-                
-                # Ensure tables exist
-                db.create_all()
-                current_app.logger.info("SQLite tables created/verified")
-                return True
-                
-            except Exception as sqlite_error:
-                current_app.logger.error(f"SQLite fallback failed: {sqlite_error}")
-                return False
-        else:
-            current_app.logger.error("Database connection failed and fallback not enabled")
-            return False
 
 @bp.route('/register', methods=['POST'])
 def register():
     try:
         current_app.logger.info("Registration attempt started")
         data = request.get_json()
-        current_app.logger.info(f"Received data keys: {list(data.keys()) if data else 'None'}")
         
         if not data or 'username' not in data or 'password' not in data:
             current_app.logger.warning("Missing username or password in request")
             return jsonify({'msg': 'Username and password required'}), 400
-          # Test database connection first
-        if not ensure_database_connection():
-            current_app.logger.error("Database connection could not be established")
-            return jsonify({'msg': 'Database service temporarily unavailable'}), 503
         
         # Check if user exists
-        try:
-            current_app.logger.info(f"Checking if user {data['username']} exists...")
-            existing_user = User.query.filter_by(username=data['username']).first()
-            current_app.logger.info("User existence check successful")
-            
-            if existing_user:
-                current_app.logger.info(f"User {data['username']} already exists")
-                return jsonify({'msg': 'User already exists'}), 400
+        existing_user = User.query.filter_by(username=data['username']).first()
+        if existing_user:
+            current_app.logger.info(f"User {data['username']} already exists")
+            return jsonify({'msg': 'User already exists'}), 400
                 
-        except Exception as db_error:
-            current_app.logger.error(f"Database query failed: {str(db_error)}")
-            current_app.logger.error(f"Database error traceback: {traceback.format_exc()}")
-            return jsonify({'msg': 'Database connection failed', 'error': str(db_error)}), 500
-            
         # Create new user
         current_app.logger.info(f"Creating new user: {data['username']}")
         user = User(username=data['username'])
         user.set_password(data['password'])
         
-        try:
-            db.session.add(user)
-            db.session.commit()
-            current_app.logger.info(f"User {data['username']} registered successfully")
-            return jsonify({'msg': 'User registered'}), 201
-            
-        except Exception as commit_error:
-            db.session.rollback()
-            current_app.logger.error(f"Database commit failed: {str(commit_error)}")
-            current_app.logger.error(f"Commit error traceback: {traceback.format_exc()}")
-            return jsonify({'msg': 'Failed to save user', 'error': str(commit_error)}), 500
+        db.session.add(user)
+        db.session.commit()
+        current_app.logger.info(f"User {data['username']} registered successfully")
+        return jsonify({'msg': 'User registered'}), 201
         
     except Exception as e:
-        current_app.logger.error(f"Registration failed with unexpected error: {str(e)}")
-        current_app.logger.error(f"Full traceback: {traceback.format_exc()}")
+        current_app.logger.error(f"Registration failed: {str(e)}")
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         db.session.rollback()
         return jsonify({'msg': 'Registration failed', 'error': str(e)}), 500
 
@@ -106,58 +44,38 @@ def login():
     try:
         current_app.logger.info("Login attempt started")
         data = request.get_json()
-        current_app.logger.info(f"Login attempt for username: {data.get('username') if data else 'None'}")
         
         if not data or 'username' not in data or 'password' not in data:
             current_app.logger.warning("Missing username or password in login request")
-            return jsonify({'msg': 'Username and password required'}), 400        
-        try:
-            current_app.logger.info("Ensuring database connection...")
-            if not ensure_database_connection():
-                current_app.logger.error("Database connection could not be established for login")
-                return jsonify({'msg': 'Database service temporarily unavailable'}), 503
+            return jsonify({'msg': 'Username and password required'}), 400
                 
-            current_app.logger.info("Querying database for user...")
-            user = User.query.filter_by(username=data['username']).first()
-            current_app.logger.info("Database query completed")
+        user = User.query.filter_by(username=data['username']).first()
+        
+        if not user or not user.check_password(data['password']):
+            current_app.logger.warning(f"Invalid login attempt for user: {data['username']}")
+            return jsonify({'msg': 'Invalid credentials'}), 401
             
-            if not user or not user.check_password(data['password']):
-                current_app.logger.warning(f"Invalid login attempt for user: {data['username']}")
-                return jsonify({'msg': 'Invalid credentials'}), 401
-                
-            current_app.logger.info(f"Successful login for user: {data['username']}")
-            token = create_access_token(identity=user.username, expires_delta=datetime.timedelta(days=1))
-            return jsonify({'token': token})
-            
-        except Exception as db_error:
-            current_app.logger.error(f"Database error during login: {str(db_error)}")
-            current_app.logger.error(f"Login database error traceback: {traceback.format_exc()}")
-            return jsonify({'msg': 'Database error during login', 'error': str(db_error)}), 500
+        current_app.logger.info(f"Successful login for user: {data['username']}")
+        token = create_access_token(identity=user.username, expires_delta=datetime.timedelta(days=1))
+        return jsonify({'token': token})
         
     except Exception as e:
-        current_app.logger.error(f"Login failed with unexpected error: {str(e)}")
-        current_app.logger.error(f"Login full traceback: {traceback.format_exc()}")
+        current_app.logger.error(f"Login failed: {str(e)}")
+        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'msg': 'Login failed', 'error': str(e)}), 500
 
-@bp.route('/check', methods=['GET'])
+@bp.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint for Railway"""
+    """Health check endpoint"""
     try:
-        current_app.logger.info("Health check endpoint accessed")
         # Test database connection
-        try:
-            with db.engine.connect() as connection:
-                connection.execute(db.text('SELECT 1'))
-            current_app.logger.info("Database connection successful")
-            db_status = "connected"
-        except Exception as db_error:
-            current_app.logger.error(f"Database connection failed: {str(db_error)}")
-            db_status = f"failed: {str(db_error)}"
+        with db.engine.connect() as connection:
+            connection.execute(db.text('SELECT 1'))
         
         return jsonify({
             'status': 'healthy',
             'message': 'Tic-Tac-Toe API is running',
-            'database': db_status,
+            'database': 'connected',
             'timestamp': datetime.datetime.utcnow().isoformat()
         }), 200
         
@@ -166,13 +84,9 @@ def health_check():
         return jsonify({
             'status': 'error',
             'message': 'Health check failed',
-            'error': str(e),
+            'database': f'failed: {str(e)}',
             'timestamp': datetime.datetime.utcnow().isoformat()
         }), 500
-
-@bp.route('/status', methods=['GET'])
-def simple_status():
-    """Simple status endpoint that doesn't require database"""
     return jsonify({
         'status': 'running',
         'message': 'Tic-Tac-Toe API is operational',

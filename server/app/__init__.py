@@ -1,149 +1,65 @@
 import os
 import logging
-import time
-import threading
 from flask import Flask
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager, decode_token
+from flask_jwt_extended import JWTManager
 from flask_socketio import SocketIO
-from jwt.exceptions import DecodeError, InvalidTokenError
 
+# Initialize extensions
 db = SQLAlchemy()
-migrate = Migrate()
 jwt = JWTManager()
 socketio = SocketIO()
 
 def create_app():
+    """Application factory pattern"""
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
-    # Configure basic logging to output to console (stdout/stderr)
-    # This is generally preferred for platforms like Render.com
-    log_format = '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    logging.basicConfig(level=logging.INFO, format=log_format)
-    
-    # Example of adding file logging back, if needed, in addition to console:
-    # if not app.debug:
-    #     if not os.path.exists('logs'):
-    #         try:
-    #             os.mkdir('logs')
-    #             # Use app.logger here if it's already available, or root logger
-    #             logging.info("Created logs directory.") 
-    #         except OSError as e:
-    #             logging.error(f"Could not create logs directory: {e}")
-    #     if os.path.exists('logs'): # Check if directory exists or was created
-    #         from logging.handlers import RotatingFileHandler
-    #         file_handler = RotatingFileHandler('logs/tictactoe.log', maxBytes=10240, backupCount=10)
-    #         file_handler.setFormatter(logging.Formatter(log_format))
-    #         file_handler.setLevel(logging.INFO)
-    #         app.logger.addHandler(file_handler) # Add to Flask's app logger
+    # Configure logging
+    if not app.debug:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        )
 
     app.logger.info('Tic Tac Toe App startup')
-    app.logger.info(f"Flask App Name: {app.name}")
-    app.logger.info(f"CORS_ORIGINS from config: {app.config.get('CORS_ORIGINS')}")
-    app.logger.info(f"DATABASE_URL from config: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
-    app.logger.info(f"JWT_SECRET_KEY is set: {'JWT_SECRET_KEY' in app.config}")
-
-
+    app.logger.info(f"Database URI configured: {bool(app.config.get('SQLALCHEMY_DATABASE_URI'))}")
+    app.logger.info(f"Supabase URL configured: {bool(app.config.get('SUPABASE_URL'))}")    # Initialize extensions with app
     db.init_app(app)
-    migrate.init_app(app, db)
     jwt.init_app(app)
     
-    # Enhanced CORS configuration
-    configured_origins = app.config.get('CORS_ORIGINS', [])
-    app.logger.info(f"Configured CORS Origins: {configured_origins}")
-
-    default_required_origins = [
-        "https://tic-tac-toe-ten-murex-86.vercel.app",  # Your Vercel deployment
-        "http://localhost:5173",                      # Common Vite dev server
-        "http://localhost:5000",                      # Common React dev server
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5000"
-    ]
-    
-    # Combine configured origins with default required origins, ensuring no duplicates
-    # and filtering out any None or empty string values if they somehow get in.
-    effective_origins = list(set([origin for origin in configured_origins + default_required_origins if origin]))
-    
-    app.logger.info(f"Effective CORS origins for Flask-CORS: {effective_origins}")
-
+    # Configure CORS
     CORS(app, 
-         origins=effective_origins, 
-         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'],
-         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-         supports_credentials=True,
-         expose_headers=['Content-Length'], 
-         max_age=86400 
-    )
+         origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']),
+         allow_headers=['Content-Type', 'Authorization', 'Access-Control-Allow-Credentials'],
+         supports_credentials=True)
     
-    # Enhanced socket initialization with better authentication handling
-    @socketio.on('connect')
-    def handle_connect(auth):
-        try:
-            if auth and 'token' in auth:
-                token = auth['token']
-                # Validate token format
-                if not token or token == 'null' or token == 'undefined':
-                    print("Socket connection rejected: Invalid token format")
-                    return False
-                    
-                decoded_token = decode_token(token)
-                username = decoded_token['sub']
-                print(f"Socket authenticated for user: {username}")
-                return True
-            else:
-                # Allow connections without auth for now (can be restricted later)
-                print("Socket connection allowed without authentication")
-                return True
-        except (DecodeError, InvalidTokenError, ValueError) as e:
-            print(f"Socket JWT error: {e}")
-            # Allow connection but log the error
-            return True
-        except Exception as e:
-            print(f"Socket authentication failed: {e}")
-            # Allow connection but log the error
-            return True
-    
-    # Initialize SocketIO with production settings
+    # Configure SocketIO
     socketio.init_app(app, 
-                     cors_allowed_origins=effective_origins, # Use the same effective_origins
-                     logger=app.config.get('DEBUG', False),
-                     engineio_logger=app.config.get('DEBUG', False),
-                     async_mode=app.config.get('ASYNC_MODE', 'eventlet')) # Get async_mode from config or default
+                     cors_allowed_origins=app.config.get('CORS_ORIGINS', ['http://localhost:5173']),
+                     logger=app.debug,
+                     engineio_logger=app.debug)
 
     # Import models to register them with SQLAlchemy
     from app.models import user, game
 
-    from app.routes import auth, game
-    app.register_blueprint(auth.bp)
-    app.register_blueprint(game.bp)
+    # Register blueprints
+    from app.routes.auth import bp as auth_bp
+    from app.routes.game import bp as game_bp
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(game_bp)
 
-    from app.sockets.handlers import register_socket_handlers
-    register_socket_handlers(socketio)
+    # Register socket handlers
+    from app.sockets import handlers
 
-    # Start background cleanup task only in production or when explicitly enabled
-    if not app.debug or os.getenv('ENABLE_CLEANUP', 'false').lower() == 'true':
-        def start_cleanup_scheduler():
-            """Start the background cleanup task"""
-            def cleanup_scheduler_task(): # Renamed for clarity
-                app.logger.info("Cleanup scheduler thread started.")
-                while True:
-                    try:
-                        app.logger.info("Cleanup scheduler running periodic task (placeholder).")
-                        # TODO: Implement actual cleanup logic here
-                        # e.g., with app.app_context(): game_operations.clean_inactive_games()
-                        time.sleep(3600)  # Run every hour
-                    except Exception as e:
-                        app.logger.error(f"Error in cleanup scheduler: {e}", exc_info=True)
-                        time.sleep(60) # Avoid busy-looping on repeated errors
-            
-            cleanup_thread = threading.Thread(target=cleanup_scheduler_task, daemon=True)
-            cleanup_thread.start()
-            app.logger.info("Game cleanup scheduler initiated.")
-        
-        # Start the cleanup scheduler
-        start_cleanup_scheduler()
+    # Create database tables
+    with app.app_context():
+        try:
+            db.create_all()
+            app.logger.info("Database tables created successfully")
+        except Exception as e:
+            app.logger.error(f"Error creating database tables: {e}")
+            raise
 
     return app

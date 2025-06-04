@@ -1,19 +1,21 @@
 from app import db
-from sqlalchemy import Text, DateTime
+from sqlalchemy import Text, DateTime, Integer, String, Boolean
 import json
 from datetime import datetime
 
 class Game(db.Model):
     __tablename__ = 'game'
     
-    id = db.Column(db.Integer, primary_key=True)
-    player_x = db.Column(db.String(80), nullable=False)
-    player_o = db.Column(db.String(80), nullable=True)
-    board = db.Column(Text, default='["","","","","","","","",""]')
-    current_turn = db.Column(db.String(1), default='X')
-    winner = db.Column(db.String(1), nullable=True)
-    is_draw = db.Column(db.Boolean, default=False)
-    created_at = db.Column(DateTime, default=datetime.utcnow)
+    # Use SERIAL for PostgreSQL auto-increment
+    id = db.Column(Integer, primary_key=True, autoincrement=True)
+    player_x = db.Column(String(80), nullable=False)
+    player_o = db.Column(String(80), nullable=True)
+    board = db.Column(Text, default='["","","","","","","","",""]', nullable=False)
+    current_turn = db.Column(String(1), default='X', nullable=False)
+    winner = db.Column(String(1), nullable=True)
+    is_draw = db.Column(Boolean, default=False, nullable=False)
+    # Use timezone-aware timestamp for PostgreSQL
+    created_at = db.Column(DateTime(timezone=True), default=db.func.now(), nullable=False)
     
     def __init__(self, **kwargs):
         super(Game, self).__init__(**kwargs)

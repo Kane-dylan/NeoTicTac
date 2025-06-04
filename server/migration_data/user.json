@@ -1,0 +1,7 @@
+[
+  {
+    "id": 1,
+    "username": "alice",
+    "password_hash": "scrypt:32768:8:1$Kf2GDBSlCfLWIqXv$598c6c766ac737a791b285325206df869f6f60171f77c03530373a7b520686f4ff3765a9abfbfefd4d2231cfdf74c5456f499c7154114f441b914c0904d33057"
+  }
+]
