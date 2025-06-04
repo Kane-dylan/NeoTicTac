@@ -24,6 +24,10 @@ def create_app():
         )
 
     app.logger.info('Tic Tac Toe App startup')
+    
+    # Log configuration details for debugging
+    from config import Config
+    Config.log_configuration()
     app.logger.info(f"Database URI configured: {bool(app.config.get('SQLALCHEMY_DATABASE_URI'))}")
     app.logger.info(f"Supabase URL configured: {bool(app.config.get('SUPABASE_URL'))}")    # Initialize extensions with app
     db.init_app(app)

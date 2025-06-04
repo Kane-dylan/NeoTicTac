@@ -1,6 +1,7 @@
 # 🚨 RENDER DEPLOYMENT ERROR FIX
 
 ## ❌ ERROR RESOLVED
+
 ```
 (psycopg2.ProgrammingError) invalid dsn: invalid connection option "pgbouncer"
 ```
@@ -8,15 +9,18 @@
 ## ✅ FIXES APPLIED
 
 ### 1. **render.yaml Cleaned Up**
+
 - ✅ Removed all environment variables from render.yaml
 - ✅ Simplified to basic service configuration only
 - ✅ Environment variables now managed through Render dashboard
 
 ### 2. **DATABASE_URL Fixed**
+
 - ❌ **Old (broken)**: `postgresql://...?pgbouncer=true`
 - ✅ **New (working)**: `postgresql://postgres:CHCTSOQehN8QMVNO@db.mauqzdgqvckrepinjybz.supabase.co:5432/postgres`
 
 ### 3. **Port Changed**
+
 - ❌ **Old**: Port 6543 (pgbouncer)
 - ✅ **New**: Port 5432 (direct connection)
 
@@ -49,6 +53,7 @@ CLIENT_URL=https://tic-tac-toe-ten-murex-86.vercel.app
 ## ✅ VERIFICATION
 
 After redeployment, you should see:
+
 ```
 ✅ Database tables created successfully
 ✅ Tic Tac Toe App startup
@@ -62,6 +67,7 @@ After redeployment, you should see:
 ## 📋 FILES UPDATED
 
 ### ✅ render.yaml
+
 ```yaml
 services:
   - type: web
@@ -77,6 +83,7 @@ services:
 ```
 
 ### ✅ server/.env
+
 ```bash
 DATABASE_URL=postgresql://postgres:CHCTSOQehN8QMVNO@db.mauqzdgqvckrepinjybz.supabase.co:5432/postgres
 # (All other vars properly set)

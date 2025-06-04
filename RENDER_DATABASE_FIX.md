@@ -1,6 +1,7 @@
 # 🔧 RENDER ENVIRONMENT VARIABLE FIX
 
 ## ❌ CURRENT ERROR
+
 ```
 (psycopg2.ProgrammingError) invalid dsn: invalid connection option "pgbouncer"
 ```
@@ -14,10 +15,12 @@ The issue is that Render still has the old DATABASE_URL with `pgbouncer=true` pa
 ## 📋 STEP-BY-STEP FIX
 
 ### 1. Go to Render Dashboard
+
 - Visit: https://dashboard.render.com
 - Select your `tictactoe-backend` service
 
 ### 2. Update Environment Variables
+
 Click on **Environment** tab and set these variables:
 
 ```bash
@@ -31,11 +34,13 @@ CLIENT_URL=https://tic-tac-toe-ten-murex-86.vercel.app
 ```
 
 ### 3. Key Changes Made
+
 - ✅ **Removed pgbouncer parameter** from DATABASE_URL
 - ✅ **Using port 5432** (direct connection) instead of 6543
 - ✅ **Clean PostgreSQL connection string**
 
 ### 4. Trigger Redeploy
+
 - After updating environment variables
 - Click **Manual Deploy** or push a new commit
 - Monitor the deployment logs
@@ -45,6 +50,7 @@ CLIENT_URL=https://tic-tac-toe-ten-murex-86.vercel.app
 ## ✅ VERIFICATION
 
 After deployment, you should see:
+
 ```
 Database tables created successfully
 ✅ Flask app started successfully
@@ -66,6 +72,7 @@ Instead of the pgbouncer error.
 ## 📞 IF STILL ISSUES
 
 If you still get connection errors, try this alternative DATABASE_URL:
+
 ```
 DATABASE_URL=postgresql://postgres:CHCTSOQehN8QMVNO@db.mauqzdgqvckrepinjybz.supabase.co:5432/postgres?sslmode=require
 ```

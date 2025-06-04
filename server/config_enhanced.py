@@ -1,3 +1,7 @@
+"""
+Enhanced config.py with automatic connection fallback for Render deployment
+"""
+
 import os
 import logging
 
@@ -65,10 +69,11 @@ class Config:
         logger.warning("⚠️ Using temporary JWT_SECRET_KEY for development!")
     JWT_ACCESS_TOKEN_EXPIRES = False  # For demo purposes
     
-    # Supabase Configuration (optional for development)
+    # Supabase Configuration
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY')
-      # Only require Supabase vars in production
+    
+    # Only require Supabase vars in production
     if os.getenv('FLASK_ENV') == 'production':
         if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables are required in production")
