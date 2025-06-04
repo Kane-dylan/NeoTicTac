@@ -152,7 +152,7 @@ class SupabaseMigration:
         print("📋 MANUAL SCHEMA SETUP REQUIRED")
         print("="*60)
         print("1. Go to your Supabase dashboard: https://supabase.com/dashboard")
-        print("2. Select your project: mauqzdgqvckrepinjybz")
+        print("2. Select your project: your-project-id")
         print("3. Go to SQL Editor")
         print("4. Create a new query and copy-paste the following SQL:")
         print("\n" + "-"*40)

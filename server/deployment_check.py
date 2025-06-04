@@ -131,7 +131,7 @@ def display_next_steps():
     print("\n📋 MANUAL STEPS REQUIRED:")
     print("\n1. 🗄️  CREATE DATABASE SCHEMA:")
     print("   • Go to https://supabase.com/dashboard")
-    print("   • Select project: mauqzdgqvckrepinjybz")
+    print("   • Select project: your-project-id")
     print("   • Go to SQL Editor")
     print("   • Copy contents of server/supabase_schema.sql")
     print("   • Run the SQL commands")

@@ -12,15 +12,14 @@ def print_render_env_vars():
     print("="*60)
     print("Copy these to your Render service Environment tab:")
     print("="*60)
-    
-    env_vars = {
-        "SECRET_KEY": "6f5cf78a0b29bafb868889e61cd18935619312de3fa90c8a985e40753e1730a9",
-        "JWT_SECRET_KEY": "c567f56715e915f4ec9a8f1544b2b17afcd420c029f8368e0303495c0e2ca177",
-        "DATABASE_URL": "postgresql://postgres:CHCTSOQehN8QMVNO@db.mauqzdgqvckrepinjybz.supabase.co:6543/postgres?pgbouncer=true",
-        "SUPABASE_URL": "https://mauqzdgqvckrepinjybz.supabase.co",
-        "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hdXF6ZGdxdmNrcmVwaW5qeWJ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg4NjUyMCwiZXhwIjoyMDY0NDYyNTIwfQ.VWqomYXkBiVZQfxuoKMkcpZfllDkhvGLzcrDz1FZDpk",
+      env_vars = {
+        "SECRET_KEY": "your-secret-key-here",
+        "JWT_SECRET_KEY": "your-jwt-secret-key-here",
+        "DATABASE_URL": "postgresql://postgres:your-password@db.your-project-id.supabase.co:6543/postgres?pgbouncer=true",
+        "SUPABASE_URL": "https://your-project-id.supabase.co",
+        "SUPABASE_SERVICE_KEY": "your-service-role-key-here",
         "FLASK_ENV": "production",
-        "CLIENT_URL": "https://tic-tac-toe-ten-murex-86.vercel.app"
+        "CLIENT_URL": "https://your-frontend-url.vercel.app"
     }
     
     for key, value in env_vars.items():

@@ -16,10 +16,9 @@ def setup_supabase_schema():
     
     print("🗄️  Setting up Supabase Database Schema")
     print("=" * 50)
-    
-    # Get Supabase credentials
-    supabase_url = "https://mauqzdgqvckrepinjybz.supabase.co"
-    supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hdXF6ZGdxdmNrcmVwaW5qeWJ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg4NjUyMCwiZXhwIjoyMDY0NDYyNTIwfQ.VWqomYXkBiVZQfxuoKMkcpZfllDkhvGLzcrDz1FZDpk"
+      # Get Supabase credentials
+    supabase_url = "https://your-project-id.supabase.co"
+    supabase_key = "your-service-role-key-here"
     
     if not supabase_url or not supabase_key:
         print("❌ Supabase credentials not found!")
