@@ -41,10 +41,9 @@ def update_render_yaml():
     
     # Update placeholder values
     print("\n🔄 Updating render.yaml...")
-    
-    # Replace DATABASE_URL
+      # Replace DATABASE_URL
     old_db_url = r'postgresql://postgres:YOUR_SUPABASE_PASSWORD@db\.YOUR_PROJECT_ID\.supabase\.co:6543/postgres\?pgbouncer=true'
-    new_db_url = f'postgresql://postgres:{password}@db.{project_id}.supabase.co:6543/postgres?pgbouncer=true'
+    new_db_url = f'postgresql://postgres:{password}@db.{project_id}.supabase.co:5432/postgres'
     content = re.sub(old_db_url, new_db_url, content)
     
     # Replace SUPABASE_URL
@@ -64,7 +63,7 @@ def update_render_yaml():
         # Show what was updated
         print("\n📝 Updated values:")
         print(f"   - Project ID: {project_id}")
-        print(f"   - Database URL: postgresql://postgres:***@db.{project_id}.supabase.co:6543/postgres?pgbouncer=true")
+        print(f"   - Database URL: postgresql://postgres:***@db.{project_id}.supabase.co:5432/postgres")
         print(f"   - Supabase URL: https://{project_id}.supabase.co")
         print(f"   - Service Key: {service_key[:20]}...")
         
