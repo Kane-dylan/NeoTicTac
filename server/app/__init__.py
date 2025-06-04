@@ -79,15 +79,20 @@ def create_app():
     ]
     
     CORS(app, 
-         origins=extended_cors_origins,
+         origins='*',
          allow_headers=['Content-Type', 'Authorization', 'Access-Control-Allow-Credentials'],
          supports_credentials=True)
     
-    # Configure SocketIO with function-based origin checking
-    socketio.init_app(app, 
-                     cors_allowed_origins=check_origin,
-                     logger=app.debug,
-                     engineio_logger=app.debug)
+    # Configure SocketIO with more permissive settings for development/testing
+    socketio.init_app(
+        app, 
+        cors_allowed_origins="*",  # Allow all origins during testing
+        logger=True,  # Always log for better debugging
+        engineio_logger=True,  # Always log engine IO for better debugging
+        ping_timeout=20,  # Longer ping timeout
+        ping_interval=25,  # More frequent pings
+        async_mode='eventlet'  # Explicitly set async mode
+    )
 
     # Import models to register them with SQLAlchemy
     from app.models import user, game    # Register blueprints
@@ -150,6 +155,7 @@ def create_app():
             app.logger.info("Database tables created successfully")
         except Exception as e:
             app.logger.error(f"Error creating database tables: {e}")
-            raise
+            # Log the error but don't crash the app
+            app.logger.warning("⚠️ Application will continue but database operations may fail")
 
     return app

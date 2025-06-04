@@ -75,22 +75,28 @@ export const SocketProvider = ({ children }) => {
       setConnected(false);
     }
 
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+    console.log('Connecting to socket server:', socketUrl);
+
     const newSocketInstance = io(
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:5000",
+      socketUrl,
       {
         auth: {
           token: authToken || null,
         },
-        transports: ["websocket", "polling"],
+        transports: ["polling", "websocket"],
         forceNew: true,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
         autoConnect: true,
-        upgrade: true,
-        rememberUpgrade: true,
+        // Don't use withCredentials in Socket.IO when CORS is set to '*'
+        withCredentials: false,
+        extraHeaders: {
+          "Access-Control-Allow-Origin": "*"
+        }
       }
     );
 

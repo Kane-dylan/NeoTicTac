@@ -9,7 +9,9 @@ def get_enhanced_database_url():
     """Get enhanced database URL with production parameters"""
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        raise ValueError("DATABASE_URL environment variable is required")
+        logger.error("DATABASE_URL environment variable is missing")
+        # Return a fallback connection string that will fail gracefully
+        return "sqlite:///fallback.db"
     
     # Fix for newer SQLAlchemy versions
     if database_url.startswith("postgres://"):

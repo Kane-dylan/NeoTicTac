@@ -58,6 +58,29 @@ except Exception as e:
     def error():
         return {'status': 'error', 'message': f'Server failed to initialize: {str(e)}'}, 500
 
+# Add error handling middleware to capture database errors
+class ErrorHandlingMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        try:
+            return self.app(environ, start_response)
+        except Exception as e:
+            logger.error(f"Unhandled exception in application: {e}")
+            status = '500 Internal Server Error'
+            response_headers = [('Content-Type', 'application/json')]
+            start_response(status, response_headers)
+            import json
+            return [json.dumps({
+                'status': 'error',
+                'message': 'The server encountered an internal error',
+                'error_type': str(type(e).__name__)
+            }).encode('utf-8')]
+
+# Wrap the application with error handling middleware
+app = ErrorHandlingMiddleware(app)
+
 # Ensure the app variable is available for Gunicorn
 application = app
 

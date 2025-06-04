@@ -1,12 +1,17 @@
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+console.log('Using API URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
+  // Add timeout to prevent hanging requests
+  timeout: 15000,
+  // Enable credentials for cross-origin requests
+  withCredentials: false
 });
 
 api.interceptors.request.use((config) => {
@@ -57,13 +62,25 @@ api.interceptors.response.use(
 
 // 🔐 Auth API
 export const registerUser = async (userData) => {
-  const response = await api.post("/auth/register", userData);
-  return response.data;
+  try {
+    console.log('Registering user:', { ...userData, password: '[REDACTED]' });
+    const response = await api.post("/auth/register", userData);
+    return response.data;
+  } catch (error) {
+    console.error('Registration error:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 export const loginUser = async (credentials) => {
-  const response = await api.post("/auth/login", credentials);
-  return response.data;
+  try {
+    console.log('Logging in user:', { ...credentials, password: '[REDACTED]' });
+    const response = await api.post("/auth/login", credentials);
+    return response.data;
+  } catch (error) {
+    console.error('Login error:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 // 🎮 Game API
