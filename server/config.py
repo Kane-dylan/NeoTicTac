@@ -33,16 +33,12 @@ class Config:
     
     # Flask configuration
     SECRET_KEY = os.getenv('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY environment variable is required")
     
     # Database configuration
-    try:
-        SQLALCHEMY_DATABASE_URI = get_enhanced_database_url()
-    except ValueError:
-        SQLALCHEMY_DATABASE_URI = None
-        
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # Connection pool settings optimized for production deployment
+    SQLALCHEMY_DATABASE_URI = get_enhanced_database_url()
+    SQLALCHEMY_TRACK_MODIFICATIONS = False    # Connection pool settings optimized for production deployment
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 3,
         'pool_recycle': 3600,
@@ -58,31 +54,17 @@ class Config:
     
     # JWT Configuration
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
+    if not JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY environment variable is required")
     JWT_ACCESS_TOKEN_EXPIRES = False
     
     # Supabase Configuration (optional - for additional features)
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY')
-      # CORS configuration
+    
+    # CORS configuration
     CLIENT_URL = os.getenv('CLIENT_URL', 'https://tic-tac-toe-ten-murex-86.vercel.app')
     CORS_ORIGINS = [CLIENT_URL]
-    
-    @classmethod
-    def validate_config(cls):
-        """Validate required configuration values"""
-        errors = []
-        
-        if not cls.SECRET_KEY:
-            errors.append("SECRET_KEY environment variable is required")
-        
-        if not cls.JWT_SECRET_KEY:
-            errors.append("JWT_SECRET_KEY environment variable is required")
-            
-        if not os.getenv('DATABASE_URL'):
-            errors.append("DATABASE_URL environment variable is required")
-            
-        if errors:
-            raise ValueError("Configuration errors: " + "; ".join(errors))
     
     @classmethod
     def log_configuration(cls):
