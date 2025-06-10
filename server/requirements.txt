@@ -8,3 +8,5 @@ psycopg2-binary==2.9.7
 supabase==2.15.2
 eventlet==0.33.3
 gunicorn==23.0.0
+Werkzeug==2.3.7
+SqlAlchemy==2.0.23

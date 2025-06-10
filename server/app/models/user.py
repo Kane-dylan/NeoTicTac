@@ -1,6 +1,7 @@
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import BigInteger
+from datetime import datetime
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -9,8 +10,12 @@ class User(db.Model):
     id = db.Column(BigInteger, primary_key=True, autoincrement=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    # Use timezone-aware timestamp for PostgreSQL
+      # Use timezone-aware timestamp for PostgreSQL
     created_at = db.Column(db.DateTime(timezone=True), default=db.func.now(), nullable=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+
+    # Note: Relationships removed to avoid foreign key conflicts
+    # Games use username strings instead of foreign keys for simplicity
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
