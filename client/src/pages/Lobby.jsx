@@ -67,11 +67,8 @@ const Lobby = () => {
       }
 
       // Join lobby room for real-time updates
-      socket.emit("join_lobby");
-
-      // Real-time lobby updates
+      socket.emit("join_lobby"); // Real-time lobby updates
       socket.on("lobby_games_update", (data) => {
-        console.log("Lobby games update:", data);
         setGames(data.games || []);
       });
 
@@ -80,9 +77,7 @@ const Lobby = () => {
           setGames((prevGames) => [...prevGames, newGame]);
         }
       });
-
       socket.on("game_started", (data) => {
-        console.log("Game started:", data);
         setGames((prevGames) =>
           prevGames.filter((game) => game.id !== data.game_id)
         );
@@ -101,11 +96,8 @@ const Lobby = () => {
               : game
           )
         );
-      });
-
-      // Handle lobby refresh notifications
+      }); // Handle lobby refresh notifications
       socket.on("lobby_refresh_needed", (data) => {
-        console.log("Lobby refresh needed:", data);
         fetchGames();
       });
 
@@ -117,12 +109,9 @@ const Lobby = () => {
 
       socket.on("disconnect", () => {
         setError("Connection lost. Attempting to reconnect...");
-      });
-
-      // Handle delete responses
+      }); // Handle delete responses
       socket.on("success", (data) => {
         setError("");
-        console.log("Success:", data.message);
       });
 
       socket.on("error", (data) => {

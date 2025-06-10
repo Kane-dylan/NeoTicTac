@@ -10,10 +10,8 @@ const GameRoom = () => {
   const { id: gameId } = useParams();
   const { socket } = useSocket();
   const navigate = useNavigate();
-
   // Safety check for required parameters
   if (!gameId) {
-    console.error("GameRoom: Missing gameId parameter");
     navigate("/lobby");
     return null;
   }
@@ -40,36 +38,26 @@ const GameRoom = () => {
     }
 
     setCurrentPlayer(username);
-    fetchGameDetails();
-
-    // Setup socket with retry logic
+    fetchGameDetails(); // Setup socket with retry logic
     const setupSocketListeners = () => {
       if (!socket || !socket.connected) {
-        console.log("Socket not ready, waiting...");
         return false;
       }
 
-      setConnectionStatus("connected");
-      console.log("Setting up socket listeners for game room:", gameId); // Join the game room
+      setConnectionStatus("connected"); // Join the game room
       socket.emit("join_room", {
         room: gameId,
         player: username,
         timestamp: new Date().toISOString(),
       });
 
-      console.log("Emitted join_room event for:", { gameId, username }); // Game state updates
+      // Game state updates
       socket.on("game_state_update", (data) => {
-        console.log("Game state update received:", data);
         try {
           if (data && data.game && typeof data.game === "object") {
             setGame((prevGame) => {
               // Ensure we properly update the game state
               const newGame = { ...data.game };
-              console.log("Updating game state:", {
-                old_player_o: prevGame?.player_o,
-                new_player_o: newGame.player_o,
-                both_players_present: !!newGame.player_o,
-              });
               return newGame;
             });
             setLoading(false); // Ensure loading is false when we get game data
@@ -82,10 +70,8 @@ const GameRoom = () => {
           setError("");
           if (data.last_move) {
             // Track the last move for potential UI updates
-            console.log("Last move:", data.last_move);
           }
           if (data.player_o_joined || data.both_players_present) {
-            console.log("Player O joined - updating UI");
             setError("🎉 Second player joined! Game is ready to start.");
             setTimeout(() => setError(""), 3000);
           }
@@ -95,16 +81,10 @@ const GameRoom = () => {
         }
       }); // Game ready notification
       socket.on("game_ready", (data) => {
-        console.log("Game ready event received:", data);
         try {
           if (data && data.game && typeof data.game === "object") {
             setGame((prevGame) => {
               const newGame = { ...data.game };
-              console.log("Game ready - updating state:", {
-                player_x: newGame.player_x,
-                player_o: newGame.player_o,
-                both_players_present: !!newGame.player_o,
-              });
               return newGame;
             });
             setError("🎉 Game is ready! Both players have joined.");
@@ -135,15 +115,10 @@ const GameRoom = () => {
           console.error("Error handling move_made:", err);
           setError("Error processing move");
         }
-      });
-
-      // Player joined the game
+      }); // Player joined the game
       socket.on("player_joined", (data) => {
-        console.log("Player joined event received:", data);
-
         // If this indicates the game is ready, force a game state refresh
         if (data.game_ready && data.player !== username) {
-          console.log("Game became ready - forcing state refresh");
           setError(`🎉 ${data.player} has joined! Game is ready to start.`);
           setTimeout(() => setError(""), 4000); // Immediately refresh game state
           setTimeout(() => {
@@ -356,31 +331,24 @@ const GameRoom = () => {
       setError("Invalid game ID");
       setLoading(false);
       return;
-    }
-
-    // Prevent concurrent API calls
+    } // Prevent concurrent API calls
     if (fetchInProgress && !force) {
-      console.log("Fetch already in progress, skipping duplicate call");
       return;
     }
 
     // Debounce API calls - prevent rapid successive calls
     const now = Date.now();
     if (!force && now - lastFetchTime < 3000) {
-      console.log("Debouncing fetchGameDetails call");
       return;
     }
 
     setFetchInProgress(true);
     setLastFetchTime(now);
-
     try {
-      console.log(`Fetching game details for game ${gameId}...`);
       const gameData = await getGameDetails(gameId);
       if (gameData && typeof gameData === "object") {
         setGame(gameData);
         setError("");
-        console.log("Game data fetched successfully");
       } else {
         throw new Error("Invalid game data received");
       }
@@ -453,28 +421,16 @@ const GameRoom = () => {
   const handleSquareClick = async (index) => {
     // Safety check for game state
     if (!game || !game.board) {
-      console.log("Game not loaded yet");
       setError("Game not loaded yet. Please wait...");
       return;
     }
 
-    console.log("Square clicked:", index, "Current game state:", {
-      player_x: game.player_x,
-      player_o: game.player_o,
-      current_turn: game.current_turn,
-      board: game.board[index],
-    });
-
     // Prevent moves on completed games
     if (game.board[index] !== "" || game.winner || game.is_draw) {
-      console.log("Move blocked - game completed or square occupied");
       return;
     } // Use current game state - don't fetch fresh data for every move
-    const currentGame = game;
-
-    // Check if both players are present
+    const currentGame = game; // Check if both players are present
     if (!currentGame.player_o) {
-      console.log("Move blocked - Player O not present yet");
       setError("Waiting for another player to join!");
       return;
     }
@@ -486,25 +442,13 @@ const GameRoom = () => {
       (currentGame.current_turn === "O" &&
         currentPlayer === currentGame.player_o);
 
-    console.log("Turn check:", {
-      current_turn: currentGame.current_turn,
-      currentPlayer,
-      player_x: currentGame.player_x,
-      player_o: currentGame.player_o,
-      isPlayerTurn,
-    });
-
     if (!isPlayerTurn) {
-      console.log("Move blocked - not player's turn");
       setError("It's not your turn!");
       setTimeout(() => setError(""), 2000);
       return;
-    }
-
-    // Clear any previous errors
+    } // Clear any previous errors
     setError("");
 
-    console.log("Making move - emitting to server");
     // Make the move
     if (socket && socket.connected) {
       socket.emit("make_move", {

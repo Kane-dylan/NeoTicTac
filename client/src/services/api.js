@@ -1,7 +1,6 @@
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-console.log("Using API URL:", API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -64,7 +63,6 @@ api.interceptors.response.use(
 // 🔐 Auth API
 export const registerUser = async (userData) => {
   try {
-    console.log("Registering user:", { ...userData, password: "[REDACTED]" });
     const response = await api.post("/auth/register", userData);
     return response.data;
   } catch (error) {
@@ -75,7 +73,6 @@ export const registerUser = async (userData) => {
 
 export const loginUser = async (credentials) => {
   try {
-    console.log("Logging in user:", { ...credentials, password: "[REDACTED]" });
     const response = await api.post("/auth/login", credentials);
     return response.data;
   } catch (error) {
@@ -99,14 +96,9 @@ export const getGameDetails = async (gameId, retries = 2) => {
   const cacheKey = `game_${gameId}`;
   const cached = gameDetailsCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    console.log(`Using cached game data for game ${gameId}`);
     return cached.data;
   }
-
   try {
-    console.log(
-      `Fetching game details for ID ${gameId}, attempt ${3 - retries}/3`
-    );
     const response = await api.get(`/game/${gameId}`);
 
     // Cache the successful response
@@ -128,9 +120,6 @@ export const getGameDetails = async (gameId, retries = 2) => {
       (error.code === "ECONNABORTED" || error.code === "NETWORK_ERROR")
     ) {
       const delay = (3 - retries) * 1000; // Exponential backoff: 1s, 2s
-      console.log(
-        `Retrying getGameDetails for game ${gameId}, ${retries} attempts left... (waiting ${delay}ms)`
-      );
       await new Promise((resolve) => setTimeout(resolve, delay));
       return getGameDetails(gameId, retries - 1);
     }
@@ -150,9 +139,6 @@ export const getAllGames = async (retries = 2) => {
       (error.code === "ECONNABORTED" || error.code === "NETWORK_ERROR")
     ) {
       const delay = (3 - retries) * 1000; // Exponential backoff: 1s, 2s
-      console.log(
-        `Retrying getAllGames, ${retries} attempts left... (waiting ${delay}ms)`
-      );
       await new Promise((resolve) => setTimeout(resolve, delay));
       return getAllGames(retries - 1);
     }
