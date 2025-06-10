@@ -7,11 +7,15 @@ from app.services.game_logic import check_winner, is_draw
 from app import db, socketio
 from datetime import datetime
 
+print("🔧 SOCKET HANDLERS MODULE LOADED!")  # Test if module is loaded
+
 # Store active connections and game rooms
 active_connections = {}  # {username: socket_id}
 game_rooms = {}  # {game_id: {players: set(), spectators: set(), room_name: str}}
 
 def register_socket_handlers(socketio):
+    print("🔧 REGISTERING SOCKET HANDLERS!")
+    
     @socketio.on('connect')
     def on_connect(auth):
         try:
@@ -68,9 +72,7 @@ def register_socket_handlers(socketio):
 
     @socketio.on('join_lobby')
     def on_join_lobby():
-        join_room('lobby')
-
-        # Send current active games
+        join_room('lobby')        # Send current active games
         try:
             active_games = Game.query.filter(
                 Game.player_o.is_(None),
@@ -86,23 +88,29 @@ def register_socket_handlers(socketio):
                     'createdAt': game.created_at.isoformat() if game.created_at else None,
                     'playerCount': 1 if game.player_o is None else 2
                 })
-            
             emit('lobby_games_update', {'games': games_data})
         except Exception as e:
-
             emit('lobby_games_update', {'games': []})
-
+    
     @socketio.on('leave_lobby')
     def on_leave_lobby():
         leave_room('lobby')
-
+    
     @socketio.on('join_room')
     def on_join_room(data):
-        game_id = data['room']
-        player = data['player']
-        room_name = f"game_{game_id}"
+        print("🚨 JOIN_ROOM EVENT RECEIVED!")  # Simple test to see if handler is called
+        print(f"🎮 Data received: {data}")
+        
+        try:
+            game_id = data['room']
+            player = data['player']
+            room_name = f"game_{game_id}"
 
-        join_room(room_name)
+            print(f"🎮 Player '{player}' attempting to join game {game_id}")
+            join_room(room_name)
+        except Exception as e:
+            print(f"❌ Error in join_room handler: {e}")
+            return
         
         # Initialize game room tracking
         if game_id not in game_rooms:
@@ -115,8 +123,11 @@ def register_socket_handlers(socketio):
         try:
             game = Game.query.get(game_id)
             if not game:
+                print(f"❌ Game {game_id} not found")
                 emit('error', {'message': f'Game {game_id} not found'})
                 return
+            
+            print(f"📊 Current game state: player_x='{game.player_x}', player_o='{game.player_o}'")
             
             is_player = False
             player_role = 'spectator'
@@ -144,24 +155,48 @@ def register_socket_handlers(socketio):
                 
                 try:
                     db.session.commit()
+                    print(f"Player O ({player}) successfully joined game {game_id}")
 
+                    # Send updated game state immediately to all players
+                    updated_game_state = {
+                        'game': game.to_dict(),
+                        'room_info': {
+                            'players': list(game_rooms[game_id]['players']),
+                            'spectators': list(game_rooms[game_id]['spectators'])
+                        },
+                        'player_o_joined': True,
+                        'both_players_present': True
+                    }
+                    
                     # Notify lobby that game is no longer available
                     emit('game_started', {
                         'game_id': game.id,
                         'players': [game.player_x, game.player_o]
                     }, room='lobby')
                     
-                    # Notify all players in the game that it's ready to start
+                    # Update player count for lobby
+                    emit('player_count_updated', {
+                        'game_id': game.id, 
+                        'playerCount': 2
+                    }, room='lobby')
+                    
+                    # Send game state update to all players first
+                    emit('game_state_update', updated_game_state, room=room_name)
+                      # Then notify all players in the game that it's ready to start
                     emit('game_ready', {
                         'message': 'Game is ready! Both players have joined.',
-                        'game': game.to_dict()
+                        'game': game.to_dict(),
+                        'both_players_joined': True
                     }, room=room_name)
                     
+                    print(f"Game {game_id} is now ready with players: {game.player_x} (X) and {game.player_o} (O)")
+                    
                 except Exception as e:
-
+                    print(f"Error committing player O join: {e}")
                     db.session.rollback()
                     emit('error', {'message': 'Failed to join game'})
                     return
+                    
             else:
                 # Join as spectator
                 game_rooms[game_id]['spectators'].add(player)
@@ -181,6 +216,7 @@ def register_socket_handlers(socketio):
                 ) if player_role != 'spectator' else False
             }
             
+            # Send game state to all players in the room
             emit('game_state_update', game_state, room=room_name)
             
             # Notify about player joining with clear role information
@@ -191,9 +227,17 @@ def register_socket_handlers(socketio):
                 'game_ready': game.player_o is not None,
                 'message': f"{player} joined as {player_role.upper() if player_role != 'spectator' else 'spectator'}"
             }, room=room_name)
-            
+              # If this was player O joining, send a special broadcast to ensure UI updates
+            if player_role == 'O' and was_waiting:
+                print(f"Broadcasting player O join for game {game_id}")
+                emit('game_state_update', {
+                    'game': game.to_dict(),
+                    'player_o_joined': True,
+                    'both_players_present': True
+                }, room=room_name)
+                
         except Exception as e:
-
+            print(f"❌ Error in join_room handler: {e}")
             emit('error', {'message': 'Failed to join room'})
 
     @socketio.on('make_move')
@@ -398,9 +442,7 @@ def register_socket_handlers(socketio):
     def on_accept_restart(data):
         # This will trigger the same voting logic as request_game_restart
         print(f"Restart accepted by {data.get('player')} for game {data['room']}")
-        on_request_game_restart(data)
-
-    @socketio.on('delete_finished_game')
+        on_request_game_restart(data)    @socketio.on('delete_finished_game')
     def on_delete_finished_game(data):
         game_id = data['room']
         player = data.get('player')
@@ -446,11 +488,56 @@ def register_socket_handlers(socketio):
                 'deleted_by': player,
                 'redirect_to_lobby': True
             }, room=room_name)
+            
+            # Notify lobby to refresh games list
+            emit('lobby_refresh_needed', {
+                'action': 'game_deleted',
+                'game_id': game_id
+            }, room='lobby')
 
         except Exception as e:
-
+            print(f"Error deleting game: {e}")
             db.session.rollback()
             emit('error', {'message': 'Failed to delete game. Please try again.'})
+
+    @socketio.on('delete_game_from_lobby')
+    def on_delete_game_from_lobby(data):
+        """Handle game deletion from lobby for finished games"""
+        game_id = data['game_id']
+        player = data.get('player')
+
+        try:
+            game = Game.query.get(game_id)
+            if not game:
+                emit('error', {'message': 'Game not found'}, room=request.sid)
+                return
+            
+            # Only allow deletion if game is completed or player is the host
+            if not (game.winner or game.is_draw or game.player_x == player):
+                emit('error', {'message': 'Cannot delete this game'}, room=request.sid)
+                return
+            
+            # Delete the game from database
+            db.session.delete(game)
+            db.session.commit()
+            
+            # Clean up room tracking
+            if game_id in game_rooms:
+                del game_rooms[game_id]
+            
+            # Notify lobby to refresh games list
+            emit('lobby_refresh_needed', {
+                'action': 'game_deleted',
+                'game_id': game_id,
+                'message': f'Game {game_id} deleted by {player}'
+            }, room='lobby')
+            
+            emit('success', {'message': 'Game deleted successfully'}, room=request.sid)
+
+        except Exception as e:
+            print(f"Error deleting game from lobby: {e}")
+            db.session.rollback()
+            emit('error', {'message': 'Failed to delete game'}, room=request.sid)
 
 def cleanup_old_games():
     """Background task to clean up old finished games"""

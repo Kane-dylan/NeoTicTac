@@ -143,10 +143,9 @@ def create_app():
                 'status': 'error',
                 'message': 'Database connection failed',
                 'error': str(e)
-            }, 500
-
-    # Register socket handlers
+            }, 500    # Register socket handlers
     from app.sockets import handlers
+    handlers.register_socket_handlers(socketio)
 
     # Create database tables
     with app.app_context():

@@ -10,14 +10,38 @@ bp = Blueprint('game', __name__, url_prefix='/api/game')
 @jwt_required() 
 def get_active_games():
     try:
-        games = Game.query.filter(Game.player_o.is_(None), Game.winner.is_(None)).all()
-        return jsonify([{
-            'id': game.id,
-            'host': game.player_x,
-            'createdAt': game.id,
-            'playerCount': 1 if game.player_o is None else 2
-        } for game in games])
+        # Get ALL games from the database, ordered by newest first
+        games = Game.query.order_by(Game.created_at.desc()).all()
+        
+        game_list = []
+        for game in games:
+            # Determine game status
+            if game.winner or game.is_draw:
+                status = 'completed'
+                playerCount = 2 if game.player_o else 1
+            elif game.player_o:
+                status = 'in_progress'
+                playerCount = 2
+            else:
+                status = 'waiting'
+                playerCount = 1
+            
+            game_data = {
+                'id': game.id,
+                'host': game.player_x,
+                'player_o': game.player_o,
+                'createdAt': game.created_at.isoformat() if game.created_at else None,
+                'playerCount': playerCount,
+                'status': status,
+                'winner': game.winner,
+                'is_draw': game.is_draw,
+                'current_turn': game.current_turn
+            }
+            game_list.append(game_data)
+            
+        return jsonify(game_list)
     except Exception as e:
+        print(f"Error fetching active games: {str(e)}")
         return jsonify({'msg': 'Failed to fetch games', 'error': str(e)}), 500
 
 @bp.route('/create', methods=['POST'])
