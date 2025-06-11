@@ -5,7 +5,6 @@ const PlayerInfo = ({
   isActive,
   isCurrentUser = false,
   isWaiting = false,
-  isConnected = true,
 }) => {
   const getStatusColor = () => {
     if (isWaiting) return "bg-yellow-100 border-yellow-300";
@@ -19,12 +18,12 @@ const PlayerInfo = ({
 
   return (
     <div
-      className={`p-4 rounded-lg border-2 transition-all duration-300 ${getStatusColor()} ${
-        isCurrentUser ? "ring-2 ring-blue-400 shadow-md" : ""
-      } ${!isConnected ? "opacity-75" : ""}`}
+      className={`p-4 rounded-lg border-2 ${getStatusColor()} ${
+        isCurrentUser ? "ring-2 ring-blue-400" : ""
+      }`}
     >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-bold flex items-center gap-2 text-gray-800">
+        <h3 className="font-bold flex items-center gap-2">
           <span className="text-lg">{getSymbolIcon(player.symbol)}</span>
           {player.username || "Waiting..."}
           {isCurrentUser && (
@@ -33,14 +32,6 @@ const PlayerInfo = ({
             </span>
           )}
         </h3>
-        <div className="flex items-center gap-1">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              isConnected ? "bg-green-500" : "bg-red-500"
-            }`}
-            title={isConnected ? "Connected" : "Disconnected"}
-          ></div>
-        </div>
       </div>
 
       <div className="space-y-1">
@@ -49,21 +40,13 @@ const PlayerInfo = ({
         </p>
 
         {isWaiting && (
-          <p className="text-xs text-yellow-600 font-medium flex items-center gap-1">
-            <span className="animate-pulse">⏳</span>
-            Waiting for player...
+          <p className="text-xs text-yellow-600 font-medium">
+            ⏳ Waiting for player...
           </p>
         )}
 
         {isActive && !isWaiting && (
-          <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-            <span className="animate-bounce">🎯</span>
-            Your turn!
-          </p>
-        )}
-
-        {!isActive && !isWaiting && player.username && (
-          <p className="text-xs text-gray-500">Waiting for turn...</p>
+          <p className="text-xs text-green-600 font-medium">🎯 Your turn!</p>
         )}
       </div>
     </div>

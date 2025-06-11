@@ -10,13 +10,14 @@ const Lobby = () => {
   const [error, setError] = useState("");
   const { socket } = useSocket();
   const navigate = useNavigate();
+
   const fetchGames = async () => {
     setLoading(true);
     setError("");
     try {
       const allGames = await getAllGames();
       setGames(allGames);
-    } catch {
+    } catch (err) {
       setError("Failed to load games");
     } finally {
       setLoading(false);
@@ -69,7 +70,7 @@ const Lobby = () => {
       if (response?.gameId) {
         navigate(`/game/${response.gameId}`);
       }
-    } catch {
+    } catch (err) {
       setError("Failed to create game");
     } finally {
       setLoading(false);

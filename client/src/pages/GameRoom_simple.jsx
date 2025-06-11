@@ -16,13 +16,14 @@ const GameRoom = () => {
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const fetchGameDetails = useCallback(async () => {
     if (!gameId) return;
     try {
       const gameData = await getGameDetails(gameId);
       setGame(gameData);
       setError("");
-    } catch {
+    } catch (error) {
       setError("Failed to load game");
     } finally {
       setLoading(false);

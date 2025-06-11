@@ -1,53 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
 
-const ChatBox = ({ messages, sendMessage, onTyping }) => {
+const ChatBox = ({ messages, sendMessage }) => {
   const [message, setMessage] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleInputChange = (e) => {
-    setMessage(e.target.value);
-
-    // Typing indicator logic
-    if (!isTyping && onTyping) {
-      setIsTyping(true);
-      onTyping(true);
-    }
-
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Set new timeout to stop typing indicator
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      onTyping && onTyping(false);
-    }, 1000);
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim()) {
       sendMessage(message);
       setMessage("");
-
-      // Stop typing indicator
-      if (isTyping && onTyping) {
-        setIsTyping(false);
-        onTyping(false);
-      }
-
-      // Clear timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
     }
   };
 
@@ -81,7 +47,7 @@ const ChatBox = ({ messages, sendMessage, onTyping }) => {
         <input
           type="text"
           value={message}
-          onChange={handleInputChange}
+          onChange={(e) => setMessage(e.target.value)}
           className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Type a message..."
           maxLength={200}
