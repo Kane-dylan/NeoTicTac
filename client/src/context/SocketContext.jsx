@@ -136,7 +136,6 @@ export const SocketProvider = ({ children }) => {
     setSocket(newSocketInstance);
 
     const cleanupHeartbeat = setupHeartbeat(newSocketInstance);
-
     return () => {
       connectionAttemptRef.current = false;
       cleanupHeartbeat();
@@ -148,7 +147,7 @@ export const SocketProvider = ({ children }) => {
         }
       }, 100);
     };
-  }, [authToken, setupHeartbeat]);
+  }, [authToken, setupHeartbeat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <SocketContext.Provider

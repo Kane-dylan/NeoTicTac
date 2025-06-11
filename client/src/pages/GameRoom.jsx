@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketContext";
 import { getGameDetails, testConnection } from "../services/api";
@@ -10,11 +10,8 @@ const GameRoom = () => {
   const { id: gameId } = useParams();
   const { socket } = useSocket();
   const navigate = useNavigate();
-  // Safety check for required parameters
-  if (!gameId) {
-    navigate("/lobby");
-    return null;
-  }
+
+  // All useState hooks must come before any early returns
   const [game, setGame] = useState(null);
   const [messages, setMessages] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState(null);
@@ -29,6 +26,12 @@ const GameRoom = () => {
   const [fetchInProgress, setFetchInProgress] = useState(false);
 
   useEffect(() => {
+    // Safety check for required parameters - moved inside useEffect
+    if (!gameId) {
+      navigate("/lobby");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     const username = localStorage.getItem("username");
 
@@ -55,7 +58,7 @@ const GameRoom = () => {
       socket.on("game_state_update", (data) => {
         try {
           if (data && data.game && typeof data.game === "object") {
-            setGame((prevGame) => {
+            setGame(() => {
               // Ensure we properly update the game state
               const newGame = { ...data.game };
               return newGame;
@@ -83,7 +86,7 @@ const GameRoom = () => {
       socket.on("game_ready", (data) => {
         try {
           if (data && data.game && typeof data.game === "object") {
-            setGame((prevGame) => {
+            setGame(() => {
               const newGame = { ...data.game };
               return newGame;
             });
@@ -325,67 +328,71 @@ const GameRoom = () => {
         });
       }
     };
-  }, [socket, gameId, navigate, currentPlayer]);
-  const fetchGameDetails = async (force = false) => {
-    if (!gameId) {
-      setError("Invalid game ID");
-      setLoading(false);
-      return;
-    } // Prevent concurrent API calls
-    if (fetchInProgress && !force) {
-      return;
-    }
+  }, [socket, gameId, navigate, currentPlayer, fetchGameDetails]);
 
-    // Debounce API calls - prevent rapid successive calls
-    const now = Date.now();
-    if (!force && now - lastFetchTime < 3000) {
-      return;
-    }
-
-    setFetchInProgress(true);
-    setLastFetchTime(now);
-    try {
-      const gameData = await getGameDetails(gameId);
-      if (gameData && typeof gameData === "object") {
-        setGame(gameData);
-        setError("");
-      } else {
-        throw new Error("Invalid game data received");
+  const fetchGameDetails = useCallback(
+    async (force = false) => {
+      if (!gameId) {
+        setError("Invalid game ID");
+        setLoading(false);
+        return;
+      } // Prevent concurrent API calls
+      if (fetchInProgress && !force) {
+        return;
       }
-    } catch (error) {
-      console.error("Failed to fetch game details:", error);
 
-      if (error.response?.status === 404) {
-        setError(`Game ${gameId} not found. Redirecting to lobby...`);
-        setTimeout(() => {
-          navigate("/lobby");
-        }, 3000);
-      } else if (error.response?.status === 401) {
-        setError("Session expired. Please log in again.");
-        localStorage.removeItem("token");
-        localStorage.removeItem("username");
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
-      } else if (error.code === "ECONNABORTED") {
-        setError(
-          "Server timeout. Click 'Refresh Game' button above to try again."
-        );
-      } else if (
-        error.code === "NETWORK_ERROR" ||
-        error.code === "ECONNREFUSED"
-      ) {
-        setError(
-          "Cannot connect to server. Please check if the server is running."
-        );
-      } else {
-        setError("Failed to load game. Please try refreshing.");
+      // Debounce API calls - prevent rapid successive calls
+      const now = Date.now();
+      if (!force && now - lastFetchTime < 3000) {
+        return;
       }
-    } finally {
-      setLoading(false);
-      setFetchInProgress(false);
-    }
-  };
+
+      setFetchInProgress(true);
+      setLastFetchTime(now);
+      try {
+        const gameData = await getGameDetails(gameId);
+        if (gameData && typeof gameData === "object") {
+          setGame(gameData);
+          setError("");
+        } else {
+          throw new Error("Invalid game data received");
+        }
+      } catch (error) {
+        console.error("Failed to fetch game details:", error);
+
+        if (error.response?.status === 404) {
+          setError(`Game ${gameId} not found. Redirecting to lobby...`);
+          setTimeout(() => {
+            navigate("/lobby");
+          }, 3000);
+        } else if (error.response?.status === 401) {
+          setError("Session expired. Please log in again.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("username");
+          setTimeout(() => {
+            navigate("/");
+          }, 2000);
+        } else if (error.code === "ECONNABORTED") {
+          setError(
+            "Server timeout. Click 'Refresh Game' button above to try again."
+          );
+        } else if (
+          error.code === "NETWORK_ERROR" ||
+          error.code === "ECONNREFUSED"
+        ) {
+          setError(
+            "Cannot connect to server. Please check if the server is running."
+          );
+        } else {
+          setError("Failed to load game. Please try refreshing.");
+        }
+      } finally {
+        setLoading(false);
+        setFetchInProgress(false);
+      }
+    },
+    [gameId, fetchInProgress, lastFetchTime, navigate]
+  );
   const handleRefreshGame = async () => {
     setRefreshing(true);
     setError("");
@@ -514,24 +521,6 @@ const GameRoom = () => {
         player: currentPlayer,
       });
     }
-  };
-
-  const refreshGameState = () => {
-    setError("Refreshing game state...");
-    fetchGameDetails();
-    if (socket && currentPlayer) {
-      // Re-emit join room to get latest state
-      socket.emit("join_room", {
-        room: gameId,
-        player: currentPlayer,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    setTimeout(() => {
-      if (error === "Refreshing game state...") {
-        setError("");
-      }
-    }, 2000);
   };
 
   const reloadConnection = () => {

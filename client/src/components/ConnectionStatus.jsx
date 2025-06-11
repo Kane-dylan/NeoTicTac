@@ -13,18 +13,18 @@ const ConnectionStatus = () => {
       const healthResponse = await checkServerHealth();
       setServerStatus(
         healthResponse.status === "healthy" ? "connected" : "error"
-      );
-
-      // Check database connection
+      ); // Check database connection
       try {
         const dbResponse = await testDatabaseConnection();
         setDbStatus(dbResponse.status === "success" ? "connected" : "error");
-      } catch (dbError) {
+      } catch {
+        // Database connection failed
         setDbStatus("error");
       }
 
       setLastChecked(new Date());
-    } catch (error) {
+    } catch {
+      // Server connection failed
       setServerStatus("error");
       setDbStatus("unknown");
       setLastChecked(new Date());

@@ -97,7 +97,7 @@ const Lobby = () => {
           )
         );
       }); // Handle lobby refresh notifications
-      socket.on("lobby_refresh_needed", (data) => {
+      socket.on("lobby_refresh_needed", () => {
         fetchGames();
       });
 
@@ -110,7 +110,7 @@ const Lobby = () => {
       socket.on("disconnect", () => {
         setError("Connection lost. Attempting to reconnect...");
       }); // Handle delete responses
-      socket.on("success", (data) => {
+      socket.on("success", () => {
         setError("");
       });
 
@@ -200,7 +200,6 @@ const Lobby = () => {
     localStorage.setItem("username", username); // Ensure username is saved
 
     try {
-      const token = localStorage.getItem("token");
       // Optional: API call to server to formally join, if your backend requires it
       // For now, we assume joining is by navigating and socket emitting 'join_room' in GameRoom
       // If an API call is needed:
