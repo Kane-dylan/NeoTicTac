@@ -130,7 +130,6 @@ const GameRoom = () => {
       });
     }
   };
-
   const leaveGame = () => navigate("/lobby");
 
   const isCurrentPlayerTurn = () => {
@@ -144,12 +143,48 @@ const GameRoom = () => {
     return playerRole !== "spectator" && game.current_turn === playerRole;
   };
 
+  // Enhanced control functions
+  const reloadGameState = async () => {
+    setLoading(true);
+    try {
+      await fetchGameDetails();
+      if (socket && currentPlayer) {
+        socket.emit("join_room", { room: gameId, player: currentPlayer });
+      }
+    } catch (error) {
+      setError("Failed to reload game state");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteGame = () => {
+    if (socket && currentPlayer) {
+      const confirmDelete = window.confirm(
+        "Are you sure you want to delete this game? This action cannot be undone."
+      );
+      if (confirmDelete) {
+        socket.emit("delete_game_from_lobby", {
+          game_id: gameId,
+          player: currentPlayer,
+        });
+      }
+    }
+  };
+
+  const isGameCompleted = () => {
+    return game && (game.winner || game.is_draw);
+  };
+
+  const canControlGame = () => {
+    return currentPlayer === game.player_x || currentPlayer === game.player_o;
+  };
   if (loading) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Loading game...</p>
+      <div className="min-h-screen bg-background-secondary flex items-center justify-center">
+        <div className="card p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-text-secondary">Loading game...</p>
         </div>
       </div>
     );
@@ -157,125 +192,188 @@ const GameRoom = () => {
 
   if (!game) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="bg-red-100 text-red-700 p-4 rounded mb-4">
-          <h2 className="text-xl font-bold mb-2">Game Not Found</h2>
-          <p>The game you're looking for doesn't exist or has been deleted.</p>
+      <div className="min-h-screen bg-background-secondary flex items-center justify-center">
+        <div className="card p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🎮</div>
+            <h2 className="text-2xl font-bold text-text-primary mb-4">Game Not Found</h2>
+            <p className="text-text-secondary mb-6">
+              The game you're looking for doesn't exist or has been deleted.
+            </p>
+            <button
+              className="btn-primary w-full"
+              onClick={() => navigate("/lobby")}
+            >
+              🏠 Back to Lobby
+            </button>
+          </div>
         </div>
-        <button
-          className="bg-blue-500 text-white py-2 px-4 rounded"
-          onClick={() => navigate("/lobby")}
-        >
-          Back to Lobby
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Game Room: {gameId}</h1>
-        <button
-          className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600"
-          onClick={leaveGame}
-        >
-          Leave Game
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>
-      )}
-
-      {(game.winner || game.is_draw) && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 p-4 rounded mb-4">
-          <div className="text-center text-lg font-semibold mb-3">
-            {game.is_draw
-              ? "🤝 Game ended in a draw!"
-              : `🎉 ${
-                  game.winner === "X" ? game.player_x : game.player_o
-                } (Player ${game.winner}) wins!`}
-          </div>
-          {(currentPlayer === game.player_x ||
-            currentPlayer === game.player_o) && (
-            <div className="text-center">
+    <div className="min-h-screen bg-background-secondary">
+      <div className="container mx-auto px-4 py-6">
+        {/* Header Section */}
+        <div className="card p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-text-primary mb-2">
+                🎮 Game Room
+              </h1>
+              <p className="text-text-secondary">
+                Game ID: <span className="font-mono font-medium">{gameId}</span>
+              </p>
+            </div>
+            
+            {/* Control Buttons */}
+            <div className="flex flex-wrap gap-2">
               <button
-                className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 mr-2"
-                onClick={requestRestart}
+                className="btn-secondary text-sm px-4 py-2"
+                onClick={reloadGameState}
+                disabled={loading}
+                title="Refresh game state"
               >
-                🔄 Play Again
+                🔄 Reload
               </button>
+              
+              {canControlGame() && isGameCompleted() && (
+                <button
+                  className="btn-primary text-sm px-4 py-2"
+                  onClick={requestRestart}
+                  title="Request to play again"
+                >
+                  🔁 Play Again
+                </button>
+              )}
+              
+              {canControlGame() && isGameCompleted() && (
+                <button
+                  className="bg-accent-error hover:bg-accent-error/90 text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
+                  onClick={deleteGame}
+                  title="Delete this game"
+                >
+                  🗑️ Delete Game
+                </button>
+              )}
+              
               <button
-                className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
+                className="bg-text-muted hover:bg-text-secondary text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
                 onClick={leaveGame}
+                title="Leave game and return to lobby"
               >
-                🏠 Back to Lobby
+                🚪 Leave
               </button>
             </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <h2 className="text-xl font-semibold mb-3">Players</h2>
-          <div className="space-y-3">
-            <PlayerInfo
-              player={{ username: game.player_x || "Player X", symbol: "X" }}
-              isActive={
-                game.current_turn === "X" &&
-                game.player_o &&
-                !game.winner &&
-                !game.is_draw
-              }
-              isCurrentUser={currentPlayer === game.player_x}
-              isWaiting={false}
-              isConnected={true}
-            />
-            <PlayerInfo
-              player={{
-                username: game.player_o || "Waiting for Player O...",
-                symbol: "O",
-              }}
-              isActive={
-                game.current_turn === "O" && !game.winner && !game.is_draw
-              }
-              isCurrentUser={currentPlayer === game.player_o}
-              isWaiting={!game.player_o}
-              isConnected={true}
-            />
           </div>
+        </div>
 
-          <div className="mt-4">
-            {game.player_o ? (
-              isCurrentPlayerTurn() ? (
-                <div className="bg-green-100 p-2 rounded text-center">
-                  Your turn!
-                </div>
-              ) : (
-                <div className="bg-gray-100 p-2 rounded text-center">
-                  {currentPlayer === game.player_x
-                    ? game.player_o
-                    : game.player_x}
-                  's turn
-                </div>
-              )
-            ) : (
-              <div className="bg-yellow-100 p-2 rounded text-center">
-                Waiting for opponent
+        {/* Error Message */}
+        {error && (
+          <div className="bg-accent-error/10 border border-accent-error/20 text-accent-error p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Game Result Banner */}
+        {isGameCompleted() && (
+          <div className="card p-6 mb-6 bg-accent-success/5 border-accent-success/20">
+            <div className="text-center">
+              <div className="text-4xl mb-3">
+                {game.is_draw ? "🤝" : "🎉"}
               </div>
-            )}
+              <h2 className="text-2xl font-bold text-text-primary mb-4">
+                {game.is_draw
+                  ? "Game ended in a draw!"
+                  : `${game.winner === "X" ? game.player_x : game.player_o} wins!`}
+              </h2>
+              <p className="text-text-secondary mb-4">
+                {game.is_draw
+                  ? "Great game! Both players played well."
+                  : `Player ${game.winner} achieved victory!`}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="flex items-center justify-center">
-          <GameBoard board={game.board} onSquareClick={handleSquareClick} />
-        </div>
+        {/* Main Game Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Players Section */}
+          <div className="lg:col-span-1">
+            <div className="card p-6">
+              <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center gap-2">
+                👥 Players
+              </h2>
+              <div className="space-y-4">
+                <PlayerInfo
+                  player={{ username: game.player_x || "Player X", symbol: "X" }}
+                  isActive={
+                    game.current_turn === "X" &&
+                    game.player_o &&
+                    !game.winner &&
+                    !game.is_draw
+                  }
+                  isCurrentUser={currentPlayer === game.player_x}
+                  isWaiting={false}
+                  isConnected={true}
+                />
+                <PlayerInfo
+                  player={{
+                    username: game.player_o || "Waiting for Player O...",
+                    symbol: "O",
+                  }}
+                  isActive={
+                    game.current_turn === "O" && !game.winner && !game.is_draw
+                  }
+                  isCurrentUser={currentPlayer === game.player_o}
+                  isWaiting={!game.player_o}
+                  isConnected={true}
+                />
+              </div>
 
-        <div>
-          <h2 className="text-xl font-semibold mb-3">Chat</h2>
-          <ChatBox messages={messages} sendMessage={sendMessage} />
+              {/* Game Status */}
+              <div className="mt-6">
+                {game.player_o ? (
+                  isCurrentPlayerTurn() ? (
+                    <div className="bg-accent-success/10 border border-accent-success/20 text-accent-success p-3 rounded-lg text-center">
+                      <div className="font-medium">🎯 Your turn!</div>
+                      <div className="text-sm opacity-75">Make your move</div>
+                    </div>
+                  ) : (
+                    <div className="bg-background-tertiary border border-border-light text-text-secondary p-3 rounded-lg text-center">
+                      <div className="font-medium">⏳ Waiting for opponent</div>
+                      <div className="text-sm">
+                        {currentPlayer === game.player_x ? game.player_o : game.player_x}'s turn
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="bg-accent-warning/10 border border-accent-warning/20 text-accent-warning p-3 rounded-lg text-center">
+                    <div className="font-medium">🔍 Waiting for opponent</div>
+                    <div className="text-sm">Share the game ID to invite players</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Game Board Section */}
+          <div className="lg:col-span-2 flex items-center justify-center">
+            <GameBoard 
+              board={game.board} 
+              onSquareClick={handleSquareClick}
+              disabled={!isCurrentPlayerTurn() || isGameCompleted()}
+            />
+          </div>
+
+          {/* Chat Section */}
+          <div className="lg:col-span-1">
+            <ChatBox messages={messages} sendMessage={sendMessage} />
+          </div>
         </div>
       </div>
     </div>

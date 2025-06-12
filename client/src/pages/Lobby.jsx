@@ -91,120 +91,227 @@ const Lobby = () => {
     if (socket) socket.disconnect();
     navigate("/");
   };
-
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">🎮 Game Lobby</h1>
-          <p className="text-gray-600">Welcome, {username || "Player"}!</p>
-        </div>
-        <button
-          className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>
-      )}
-
-      <div className="mb-6 p-4 border rounded bg-white">
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">
-            Your Username:
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your username"
-          />
+    <div className="min-h-screen bg-background-secondary">
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        {/* Header Section */}
+        <div className="card p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-text-primary mb-2 flex items-center gap-3">
+                🎮 Game Lobby
+              </h1>
+              <p className="text-text-secondary">
+                Welcome back,{" "}
+                <span className="font-medium text-text-primary">
+                  {username || "Player"}
+                </span>
+                !
+              </p>
+            </div>
+            <button
+              className="bg-accent-error hover:bg-accent-error/90 text-text-inverse py-2 px-4 rounded-md font-medium transition-all duration-200 self-start"
+              onClick={handleLogout}
+            >
+              🚪 Logout
+            </button>
+          </div>
         </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={handleCreateGame}
-            className="bg-green-500 text-white py-3 px-6 rounded hover:bg-green-600 disabled:bg-gray-400"
-            disabled={!username.trim() || loading}
-          >
-            {loading ? "Creating..." : "Create New Game"}
-          </button>
-          <button
-            onClick={fetchGames}
-            className="bg-blue-500 text-white py-3 px-6 rounded hover:bg-blue-600"
-          >
-            Refresh Games
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">
-          All Games ({games.length})
-        </h2>
-
-        {loading && games.length === 0 && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p>Loading games...</p>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-accent-error/10 border border-accent-error/20 text-accent-error p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
           </div>
         )}
 
-        {!loading && games.length === 0 && (
-          <div className="text-center py-12 bg-gray-50 rounded">
-            <div className="text-4xl mb-4">🎮</div>
-            <p className="text-gray-600">No games found</p>
-            <p className="text-gray-500">
-              Create the first game to get started!
-            </p>
-          </div>
-        )}
+        {/* User Controls Section */}
+        <div className="card p-6 mb-6">
+          <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center gap-2">
+            👤 Player Setup
+          </h2>
 
-        {games.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {games.map((game) => (
-              <div
-                key={game.id}
-                className="border p-4 rounded shadow hover:shadow-md transition"
-              >
-                <div className="mb-3">
-                  <p className="font-semibold text-lg">
-                    🎮 {game.host}
-                    {game.player_o && ` vs ${game.player_o}`}
-                  </p>
-                  <p className="text-xs text-gray-500">ID: {game.id}</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Username Input */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">
+                Your Username:
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input-field w-full"
+                placeholder="Enter your username"
+                maxLength={20}
+              />
+              <p className="text-xs text-text-muted mt-1">
+                This name will be shown to other players
+              </p>
+            </div>
 
-                <div className="mb-3">
-                  <p className="text-sm text-gray-500">
-                    Status: <span className="font-medium">{game.status}</span>
-                  </p>
-                  {game.status === "completed" && (
-                    <p className="text-sm">
-                      Result: {game.is_draw ? "Draw" : `${game.winner} Won`}
-                    </p>
-                  )}
-                </div>
-
+            {/* Action Buttons */}
+            <div className="flex flex-col justify-end">
+              <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => handleJoinGame(game.id)}
-                  className="w-full py-2 px-4 rounded font-medium bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300"
+                  onClick={handleCreateGame}
+                  className="btn-primary flex items-center gap-2 px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!username.trim() || loading}
                 >
-                  {game.status === "waiting"
-                    ? "Join Game"
-                    : game.status === "in_progress"
-                    ? "Watch Game"
-                    : "View Results"}
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-text-inverse border-t-transparent"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    <>➕ Create New Game</>
+                  )}
+                </button>
+                <button
+                  onClick={fetchGames}
+                  className="btn-secondary flex items-center gap-2 px-4 py-3"
+                >
+                  🔄 Refresh
                 </button>
               </div>
-            ))}
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Games List Section */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
+              🎯 Available Games
+              <span className="bg-background-tertiary text-text-secondary px-3 py-1 rounded-full text-sm font-medium">
+                {games.length}
+              </span>
+            </h2>
+          </div>
+
+          {/* Loading State */}
+          {loading && games.length === 0 && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+              <p className="text-text-secondary">Loading games...</p>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && games.length === 0 && (
+            <div className="text-center py-16 bg-background-tertiary rounded-lg">
+              <div className="text-6xl mb-4">🎮</div>
+              <h3 className="text-xl font-semibold text-text-primary mb-2">
+                No games found
+              </h3>
+              <p className="text-text-secondary mb-6">
+                Be the first to create a game and start playing!
+              </p>
+              <button
+                onClick={handleCreateGame}
+                className="btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!username.trim() || loading}
+              >
+                ➕ Create First Game
+              </button>
+            </div>
+          )}
+
+          {/* Games Grid */}
+          {games.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {games.map((game) => (
+                <div
+                  key={game.id}
+                  className="card p-6 hover:shadow-lg transition-all duration-200 border-l-4 border-l-primary"
+                >
+                  {/* Game Header */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-text-primary text-lg">
+                        🎮 {game.host}
+                        {game.player_o && (
+                          <span className="text-text-secondary">
+                            {" "}
+                            vs {game.player_o}
+                          </span>
+                        )}
+                      </h3>
+                      <span className="text-xs font-mono text-text-muted bg-background-tertiary px-2 py-1 rounded">
+                        #{game.id}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Game Status */}
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-text-secondary">
+                        Status:
+                      </span>
+                      <span
+                        className={`text-sm font-medium px-2 py-1 rounded-full ${
+                          game.status === "waiting"
+                            ? "bg-accent-warning/10 text-accent-warning"
+                            : game.status === "in_progress"
+                            ? "bg-accent-info/10 text-accent-info"
+                            : "bg-accent-success/10 text-accent-success"
+                        }`}
+                      >
+                        {game.status === "waiting" && "🟡 Waiting"}
+                        {game.status === "in_progress" && "🔵 In Progress"}
+                        {game.status === "completed" && "🟢 Completed"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-text-secondary">
+                        Players:
+                      </span>
+                      <span className="text-sm font-medium text-text-primary">
+                        {game.playerCount}/2
+                      </span>
+                    </div>
+
+                    {game.status === "completed" && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-text-secondary">
+                          Result:
+                        </span>
+                        <span className="text-sm font-medium text-text-primary">
+                          {game.is_draw ? "🤝 Draw" : `🏆 ${game.winner} Won`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Join Button */}
+                  <button
+                    onClick={() => handleJoinGame(game.id)}
+                    className="w-full py-3 px-4 rounded-md font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!username.trim() || loading}
+                    style={{
+                      backgroundColor:
+                        game.status === "waiting"
+                          ? "var(--color-accent-success)"
+                          : game.status === "in_progress"
+                          ? "var(--color-accent-info)"
+                          : "var(--color-secondary)",
+                      color: "var(--color-text-inverse)",
+                    }}
+                  >
+                    {game.status === "waiting" && "🚀 Join Game"}
+                    {game.status === "in_progress" && "👀 Watch Game"}
+                    {game.status === "completed" && "📊 View Results"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

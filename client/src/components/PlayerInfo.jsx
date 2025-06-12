@@ -5,49 +5,126 @@ const PlayerInfo = ({
   isActive,
   isCurrentUser = false,
   isWaiting = false,
+  isConnected = true,
 }) => {
-  const getStatusColor = () => {
-    if (isWaiting) return "bg-yellow-100 border-yellow-300";
-    if (isActive) return "bg-green-100 border-green-300";
-    return "bg-gray-100 border-gray-300";
+  const getStatusIndicator = () => {
+    if (isWaiting) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-accent-warning rounded-full animate-pulse"></div>
+          <span className="text-xs font-medium text-accent-warning">
+            Waiting...
+          </span>
+        </div>
+      );
+    }
+
+    if (!isConnected) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-accent-error rounded-full"></div>
+          <span className="text-xs font-medium text-accent-error">
+            Disconnected
+          </span>
+        </div>
+      );
+    }
+
+    if (isActive) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-accent-success rounded-full animate-pulse"></div>
+          <span className="text-xs font-medium text-accent-success">
+            Your turn!
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 bg-text-muted rounded-full"></div>
+        <span className="text-xs font-medium text-muted">Waiting for turn</span>
+      </div>
+    );
+  };
+
+  const getCardStyles = () => {
+    let baseStyles = "card p-4 transition-all duration-200";
+
+    if (isCurrentUser) {
+      baseStyles += " ring-2 ring-primary/30 bg-primary/5";
+    }
+
+    if (isActive && !isWaiting) {
+      baseStyles += " shadow-lg border-accent-success/30";
+    }
+
+    return baseStyles;
   };
 
   const getSymbolIcon = (symbol) => {
-    return symbol === "X" ? "❌" : symbol === "O" ? "⭕" : "❓";
+    if (symbol === "X") return "✕";
+    if (symbol === "O") return "◯";
+    return "❓";
+  };
+
+  const getSymbolColor = (symbol) => {
+    if (symbol === "X") return "text-accent-error";
+    if (symbol === "O") return "text-accent-info";
+    return "text-text-muted";
   };
 
   return (
-    <div
-      className={`p-4 rounded-lg border-2 ${getStatusColor()} ${
-        isCurrentUser ? "ring-2 ring-blue-400" : ""
-      }`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-bold flex items-center gap-2">
-          <span className="text-lg">{getSymbolIcon(player.symbol)}</span>
-          {player.username || "Waiting..."}
-          {isCurrentUser && (
-            <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full">
-              YOU
+    <div className={getCardStyles()}>
+      {/* Player Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-background-tertiary border-2 border-border-light">
+            <span
+              className={`text-xl font-bold ${getSymbolColor(player.symbol)}`}
+            >
+              {getSymbolIcon(player.symbol)}
             </span>
-          )}
-        </h3>
+          </div>
+          <div>
+            <h3 className="font-semibold text-text-primary flex items-center gap-2">
+              {player.username || "Waiting..."}
+              {isCurrentUser && (
+                <span className="text-xs bg-primary text-text-inverse px-2 py-1 rounded-full font-medium">
+                  YOU
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-text-secondary">
+              Player {player.symbol || "?"}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-1">
-        <p className="text-sm text-gray-600">
-          Symbol: <span className="font-medium">{player.symbol || "?"}</span>
-        </p>
+      {/* Status Indicator */}
+      <div className="flex items-center justify-between">
+        {getStatusIndicator()}
 
-        {isWaiting && (
-          <p className="text-xs text-yellow-600 font-medium">
-            ⏳ Waiting for player...
-          </p>
-        )}
-
-        {isActive && !isWaiting && (
-          <p className="text-xs text-green-600 font-medium">🎯 Your turn!</p>
-        )}
+        {/* Connection Quality Indicator */}
+        <div className="flex items-center gap-1">
+          <div
+            className={`w-1 h-3 rounded-full ${
+              isConnected ? "bg-accent-success" : "bg-accent-error"
+            }`}
+          ></div>
+          <div
+            className={`w-1 h-4 rounded-full ${
+              isConnected ? "bg-accent-success" : "bg-text-muted"
+            }`}
+          ></div>
+          <div
+            className={`w-1 h-5 rounded-full ${
+              isConnected ? "bg-accent-success" : "bg-text-muted"
+            }`}
+          ></div>
+        </div>
       </div>
     </div>
   );
