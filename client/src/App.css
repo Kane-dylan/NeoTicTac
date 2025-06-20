@@ -1,35 +1,35 @@
 @import "tailwindcss";
 
-/* Custom CSS Variables for Tailwind v4 */
+/* Custom CSS Variables for Tailwind v4 - Enhanced Visibility */
 :root {
-  /* Text Colors */
-  --color-text-primary: #1f2937; /* gray-800 */
-  --color-text-secondary: #6b7280; /* gray-500 */
-  --color-text-muted: #9ca3af; /* gray-400 */
-  --color-text-inverse: #f9fafb; /* gray-50 */
+  /* Text Colors - Improved contrast */
+  --color-text-primary: #111827; /* gray-900 - darker for better readability */
+  --color-text-secondary: #4b5563; /* gray-600 - darker secondary text */
+  --color-text-muted: #6b7280; /* gray-500 - still readable muted text */
+  --color-text-inverse: #ffffff; /* pure white for better contrast */
 
-  /* Background Colors */
-  --color-background-primary: #ffffff;
-  --color-background-secondary: #f9fafb; /* gray-50 */
-  --color-background-tertiary: #f3f4f6; /* gray-100 */
-  --color-background-dark: #1f2937; /* gray-800 */
+  /* Background Colors - Better contrast and warmth */
+  --color-background-primary: #e3fac248;
+  --color-background-secondary: #a3b45049; /* slate-50 - warmer background */
+  --color-background-tertiary: #e2e8f0; /* slate-200 - more distinct tertiary */
+  --color-background-dark: #1e293b; /* slate-800 - warmer dark */
 
-  /* Interactive Colors */
-  --color-primary: #374151; /* gray-700 */
-  --color-primary-hover: #1f2937; /* gray-800 */
-  --color-secondary: #6b7280; /* gray-500 */
-  --color-secondary-hover: #4b5563; /* gray-600 */
+  /* Interactive Colors - More vibrant and accessible */
+  --color-primary: #0f172a; /* slate-900 - much darker for better contrast */
+  --color-primary-hover: #020617; /* slate-950 - even darker on hover */
+  --color-secondary: #475569; /* slate-600 - better contrast */
+  --color-secondary-hover: #334155; /* slate-700 - darker hover */
 
-  /* Accent Colors */
-  --color-accent-success: #10b981; /* emerald-500 */
-  --color-accent-warning: #f59e0b; /* amber-500 */
-  --color-accent-error: #ef4444; /* red-500 */
-  --color-accent-info: #3b82f6; /* blue-500 */
+  /* Accent Colors - More vibrant and accessible */
+  --color-accent-success: #059669; /* emerald-600 - darker for better contrast */
+  --color-accent-warning: #d97706; /* amber-600 - darker for readability */
+  --color-accent-error: #dc2626; /* red-600 - more vibrant and accessible */
+  --color-accent-info: #2563eb; /* blue-600 - better contrast */
 
-  /* Border Colors */
-  --color-border-light: #e5e7eb; /* gray-200 */
-  --color-border-medium: #d1d5db; /* gray-300 */
-  --color-border-dark: #6b7280; /* gray-500 */
+  /* Border Colors - More defined */
+  --color-border-light: #cbd5e1; /* slate-300 - more visible light border */
+  --color-border-medium: #94a3b8; /* slate-400 - clearer medium border */
+  --color-border-dark: #475569; /* slate-600 - strong dark border */
 
   /* Spacing Scale */
   --space-1: 0.25rem; /* 4px */
@@ -131,15 +131,178 @@ body {
 }
 
 .input-field {
-  border: 1px solid var(--color-border-medium);
+  border: 2px solid var(--color-border-medium); /* Thicker border for better visibility */
   border-radius: var(--radius-md);
   padding: var(--space-3);
   background-color: var(--color-background-primary);
   transition: all 0.2s ease;
+  color: var(--color-text-primary);
+  font-weight: 500;
 }
 
 .input-field:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgb(55 65 81 / 0.1);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1); /* Updated shadow color */
+  background-color: var(--color-background-primary);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* Additional smooth animations for enhanced background */
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes wiggle-reverse {
+  0%,
+  100% {
+    transform: rotate(3deg);
+  }
+  50% {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes morph {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 50% 40% 30% 70%;
+  }
+  25% {
+    transform: scale(1.1) rotate(90deg);
+    border-radius: 60% 30% 70% 40%;
+  }
+  50% {
+    transform: scale(0.9) rotate(180deg);
+    border-radius: 30% 60% 40% 70%;
+  }
+  75% {
+    transform: scale(1.05) rotate(270deg);
+    border-radius: 70% 40% 60% 30%;
+  }
+}
+
+@keyframes morph-blob {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  33% {
+    transform: scale(1.1) skew(10deg);
+  }
+  66% {
+    transform: scale(0.9) skew(-10deg);
+  }
+}
+
+@keyframes morph-blob-reverse {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  33% {
+    transform: scale(0.9) rotate(120deg);
+  }
+  66% {
+    transform: scale(1.1) rotate(240deg);
+  }
+}
+
+@keyframes bounce-subtle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes float-path {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-5px) translateX(3px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(0);
+  }
+  75% {
+    transform: translateY(-5px) translateX(-3px);
+  }
+}
+
+@keyframes float-path-reverse {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-5px) translateX(-3px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(0);
+  }
+  75% {
+    transform: translateY(-5px) translateX(3px);
+  }
+}
+
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+/* New animation classes */
+.animate-wiggle {
+  animation: wiggle 2s ease-in-out infinite;
+}
+
+.animate-wiggle-reverse {
+  animation: wiggle-reverse 2.5s ease-in-out infinite;
+}
+
+.animate-morph {
+  animation: morph 8s ease-in-out infinite;
+}
+
+.animate-morph-blob {
+  animation: morph-blob 6s ease-in-out infinite;
+}
+
+.animate-morph-blob-reverse {
+  animation: morph-blob-reverse 7s ease-in-out infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 3s ease-in-out infinite;
+}
+
+.animate-float-path {
+  animation: float-path 4s ease-in-out infinite;
+}
+
+.animate-float-path-reverse {
+  animation: float-path-reverse 5s ease-in-out infinite;
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 12s linear infinite;
 }
