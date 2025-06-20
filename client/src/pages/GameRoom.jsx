@@ -16,6 +16,7 @@ const GameRoom = () => {
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [restartRequest, setRestartRequest] = useState(null);
   const fetchGameDetails = useCallback(async () => {
     if (!gameId) return;
     try {
@@ -62,13 +63,29 @@ const GameRoom = () => {
       // Chat messages
       socket.on("receive_message", (message) => {
         setMessages((prev) => [...prev, message]);
+      }); // Game events
+      socket.on("player_joined", () => fetchGameDetails());
+      socket.on("game_over", () => fetchGameDetails()); // Restart events
+      socket.on("restart_requested", (data) => {
+        console.log("Restart requested:", data);
+        setRestartRequest(data);
+        setError("");
       });
 
-      // Game events
-      socket.on("player_joined", () => fetchGameDetails());
-      socket.on("game_over", () => fetchGameDetails());
-    }
+      socket.on("game_restarted", (data) => {
+        console.log("Game restarted:", data);
+        setGame(data.game);
+        setRestartRequest(null);
+        setError("");
+      });
 
+      socket.on("restart_declined", (data) => {
+        console.log("Restart declined:", data);
+        setRestartRequest(null);
+        setError(`${data.declining_player} declined the restart request`);
+        setTimeout(() => setError(""), 5000);
+      });
+    }
     return () => {
       if (socket) {
         socket.emit("leave_room", { room: gameId, player: username });
@@ -77,6 +94,9 @@ const GameRoom = () => {
         socket.off("receive_message");
         socket.off("player_joined");
         socket.off("game_over");
+        socket.off("restart_requested");
+        socket.off("game_restarted");
+        socket.off("restart_declined");
       }
     };
   }, [socket, gameId, navigate, fetchGameDetails]);
@@ -121,13 +141,32 @@ const GameRoom = () => {
       });
     }
   };
-
   const requestRestart = () => {
     if (socket && currentPlayer) {
       socket.emit("request_game_restart", {
         room: gameId,
         player: currentPlayer,
       });
+    }
+  };
+
+  const acceptRestart = () => {
+    if (socket && currentPlayer) {
+      socket.emit("accept_restart", {
+        room: gameId,
+        player: currentPlayer,
+      });
+      setRestartRequest(null); // Clear the request immediately
+    }
+  };
+
+  const declineRestart = () => {
+    if (socket && currentPlayer) {
+      socket.emit("decline_restart", {
+        room: gameId,
+        player: currentPlayer,
+      });
+      setRestartRequest(null); // Clear the request immediately
     }
   };
   const leaveGame = () => navigate("/lobby");
@@ -213,9 +252,19 @@ const GameRoom = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-cyber-black relative overflow-hidden">
+      {/* Pixel Art Cloud Background */}
+      <div
+        className="absolute inset-0 opacity-5 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url('/clouds-pixel.png')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "brightness(0.2) contrast(1.5)",
+        }}
+      ></div>
+
       {/* Floating Particles */}
       <div className="floating-particles">
         {[...Array(10)].map((_, i) => (
@@ -291,8 +340,7 @@ const GameRoom = () => {
                 </button>
               </div>
             </div>
-          </div>
-
+          </div>{" "}
           {/* Error Message */}
           {error && (
             <div className="bg-neon-pink/10 border-2 border-neon-pink text-neon-pink p-4 rounded-lg mb-6 animate-neon-flicker">
@@ -301,8 +349,59 @@ const GameRoom = () => {
                 <span className="uppercase tracking-wide">{error}</span>
               </div>
             </div>
+          )}{" "}
+          {/* Restart Request Modal */}
+          {restartRequest && restartRequest.other_player === currentPlayer && (
+            <div className="cyber-card p-6 mb-6 bg-neon-purple/10 border-2 border-neon-purple">
+              <div className="text-center">
+                <div className="text-4xl mb-3 animate-neon-pulse">🔄</div>
+                <h2 className="text-xl font-bold text-neon-purple mb-4 neon-text font-mono">
+                  RESTART REQUEST
+                </h2>
+                <p className="text-neon-cyan mb-6 font-mono">
+                  {restartRequest.requesting_player} wants to play another
+                  round!
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <button
+                    className="btn-neon px-6 py-3 font-mono"
+                    onClick={acceptRestart}
+                  >
+                    ✅ ACCEPT
+                  </button>
+                  <button
+                    className="btn-neon-pink px-6 py-3 font-mono"
+                    onClick={declineRestart}
+                  >
+                    ❌ DECLINE
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
-
+          {/* Waiting for Restart Response */}
+          {restartRequest &&
+            restartRequest.requesting_player === currentPlayer &&
+            restartRequest.other_player !== currentPlayer && (
+              <div className="cyber-card p-6 mb-6 bg-neon-yellow/10 border-2 border-neon-yellow">
+                <div className="text-center">
+                  <div className="text-4xl mb-3 animate-pulse">⏳</div>
+                  <h2 className="text-xl font-bold text-neon-yellow mb-4 neon-text font-mono">
+                    WAITING FOR RESPONSE
+                  </h2>
+                  <p className="text-neon-cyan mb-4 font-mono">
+                    Waiting for {restartRequest.other_player} to respond to your
+                    restart request...
+                  </p>
+                  <button
+                    className="btn-neon-pink px-4 py-2 text-sm font-mono"
+                    onClick={() => setRestartRequest(null)}
+                  >
+                    CANCEL REQUEST
+                  </button>
+                </div>
+              </div>
+            )}
           {/* Game Result Banner */}
           {isGameCompleted() && (
             <div className="cyber-card p-6 mb-6 bg-neon-green/5 border-neon-green/20">
@@ -325,7 +424,6 @@ const GameRoom = () => {
               </div>
             </div>
           )}
-
           {/* Main Game Content */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Players Section */}
