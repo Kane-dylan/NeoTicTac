@@ -4,13 +4,8 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  // Increase timeout for better reliability
-  timeout: 15000,
-  // Enable credentials for cross-origin requests
-  withCredentials: false,
+  headers: { "Content-Type": "application/json" },
+  timeout: 10000,
 });
 
 api.interceptors.request.use((config) => {
@@ -21,174 +16,40 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add response interceptor for better error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("API Error Details:", {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message,
-    });
-
-    // Handle specific error cases
     if (error.response?.status === 401) {
-      // Authentication error - token might be expired
-      console.error("Authentication error - token might be expired");
-      // Don't automatically redirect here, let components handle it
-    } else if (error.response?.status === 404) {
-      // Not found - let component handle
-    } else if (error.response?.status === 422) {
-      // Validation error - let component handle
-    } else if (error.response?.status === 500) {
-      // Server error - could be database connection issue
-      console.error(
-        "Server error detected - possibly database connection issue"
-      );
-    } else if (
-      error.code === "NETWORK_ERROR" ||
-      error.code === "ECONNREFUSED"
-    ) {
-      // Network connectivity issues
-      console.error("Network connectivity issue detected");
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
     }
-
     return Promise.reject(error);
   }
 );
 
-// 🔐 Auth API
+// Auth API
 export const registerUser = async (userData) => {
-  try {
-    const response = await api.post("/auth/register", userData);
-    return response.data;
-  } catch (error) {
-    console.error("Registration error:", error.response?.data || error.message);
-    throw error;
-  }
+  const response = await api.post("/auth/register", userData);
+  return response.data;
 };
 
 export const loginUser = async (credentials) => {
-  try {
-    const response = await api.post("/auth/login", credentials);
-    return response.data;
-  } catch (error) {
-    console.error("Login error:", error.response?.data || error.message);
-    throw error;
-  }
+  const response = await api.post("/auth/login", credentials);
+  return response.data;
 };
 
-// 🎮 Game API
+// Game API
 export const createGame = async () => {
   const response = await api.post("/game/create");
   return response.data;
 };
 
-// Cache for game details to prevent rapid API calls
-const gameDetailsCache = new Map();
-const CACHE_DURATION = 2000; // 2 seconds
-
-export const getGameDetails = async (gameId, retries = 2) => {
-  // Check cache first
-  const cacheKey = `game_${gameId}`;
-  const cached = gameDetailsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.data;
-  }
-  try {
-    const response = await api.get(`/game/${gameId}`);
-
-    // Cache the successful response
-    gameDetailsCache.set(cacheKey, {
-      data: response.data,
-      timestamp: Date.now(),
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error(
-      `Failed to get game details for ID ${gameId}:`,
-      error.response?.data || error.message
-    );
-
-    // Retry on timeout or network errors
-    if (
-      retries > 0 &&
-      (error.code === "ECONNABORTED" || error.code === "NETWORK_ERROR")
-    ) {
-      const delay = (3 - retries) * 1000; // Exponential backoff: 1s, 2s
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return getGameDetails(gameId, retries - 1);
-    }
-
-    throw error;
-  }
+export const getGameDetails = async (gameId) => {
+  const response = await api.get(`/game/${gameId}`);
+  return response.data;
 };
 
-// ✅ Get all games (active, completed, waiting)
-export const getAllGames = async (retries = 2) => {
-  try {
-    const response = await api.get("/game/active");
-    return response.data;
-  } catch (error) {
-    if (
-      retries > 0 &&
-      (error.code === "ECONNABORTED" || error.code === "NETWORK_ERROR")
-    ) {
-      const delay = (3 - retries) * 1000; // Exponential backoff: 1s, 2s
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return getAllGames(retries - 1);
-    }
-    throw error;
-  }
+export const getAllGames = async () => {
+  const response = await api.get("/game/active");
+  return response.data;
 };
-
-// Keep the old function name for backward compatibility
-export const getActiveGames = getAllGames;
-
-// 🔍 Health Check API
-export const checkServerHealth = async () => {
-  try {
-    const response = await api.get("/health");
-    return response.data;
-  } catch (error) {
-    console.error("Health check failed:", error);
-    throw error;
-  }
-};
-
-export const testConnection = async () => {
-  try {
-    // Try a simple request with short timeout using the existing api instance
-    const response = await api.get("/game/active", {
-      timeout: 3000,
-    });
-    return { connected: true, status: response.status };
-  } catch (error) {
-    console.error("Connection test failed:", error);
-    return {
-      connected: false,
-      error:
-        error.code === "ECONNABORTED"
-          ? "Timeout"
-          : error.code === "NETWORK_ERROR"
-          ? "Network Error"
-          : error.response?.status || "Unknown Error",
-    };
-  }
-};
-
-export const testDatabaseConnection = async () => {
-  try {
-    const response = await api.get("/api/test-db");
-    return response.data;
-  } catch (error) {
-    console.error("Database test failed:", error);
-    throw error;
-  }
-};
-
-export default api;

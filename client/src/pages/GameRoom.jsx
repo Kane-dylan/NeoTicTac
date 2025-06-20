@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketContext";
-import { getGameDetails, testConnection } from "../services/api";
+import { getGameDetails } from "../services/api";
 import GameBoard from "../components/GameBoard";
 import PlayerInfo from "../components/PlayerInfo";
 import ChatBox from "../components/ChatBox";
@@ -10,25 +10,31 @@ const GameRoom = () => {
   const { id: gameId } = useParams();
   const { socket } = useSocket();
   const navigate = useNavigate();
-  // Safety check for required parameters
-  if (!gameId) {
-    navigate("/lobby");
-    return null;
-  }
+
   const [game, setGame] = useState(null);
   const [messages, setMessages] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [connectionStatus, setConnectionStatus] = useState("connecting");
-  const [typingUsers, setTypingUsers] = useState(new Set());
-  const [restartRequested, setRestartRequested] = useState(false);
-  const [restartRequestedBy, setRestartRequestedBy] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastFetchTime, setLastFetchTime] = useState(0);
-  const [fetchInProgress, setFetchInProgress] = useState(false);
+  const fetchGameDetails = useCallback(async () => {
+    if (!gameId) return;
+    try {
+      const gameData = await getGameDetails(gameId);
+      setGame(gameData);
+      setError("");
+    } catch {
+      setError("Failed to load game");
+    } finally {
+      setLoading(false);
+    }
+  }, [gameId]);
 
   useEffect(() => {
+    if (!gameId) {
+      navigate("/lobby");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     const username = localStorage.getItem("username");
 
@@ -38,110 +44,19 @@ const GameRoom = () => {
     }
 
     setCurrentPlayer(username);
-    fetchGameDetails(); // Setup socket with retry logic
-    const setupSocketListeners = () => {
-      if (!socket || !socket.connected) {
-        return false;
-      }
+    fetchGameDetails();
 
-      setConnectionStatus("connected"); // Join the game room
-      socket.emit("join_room", {
-        room: gameId,
-        player: username,
-        timestamp: new Date().toISOString(),
-      });
+    // Socket setup
+    if (socket) {
+      socket.emit("join_room", { room: gameId, player: username });
 
       // Game state updates
       socket.on("game_state_update", (data) => {
-        try {
-          if (data && data.game && typeof data.game === "object") {
-            setGame((prevGame) => {
-              // Ensure we properly update the game state
-              const newGame = { ...data.game };
-              return newGame;
-            });
-            setLoading(false); // Ensure loading is false when we get game data
-          } else {
-            console.warn(
-              "Invalid game data received in game_state_update:",
-              data
-            );
-          }
-          setError("");
-          if (data.last_move) {
-            // Track the last move for potential UI updates
-          }
-          if (data.player_o_joined || data.both_players_present) {
-            setError("🎉 Second player joined! Game is ready to start.");
-            setTimeout(() => setError(""), 3000);
-          }
-        } catch (err) {
-          console.error("Error handling game_state_update:", err);
-          setError("Error updating game state");
-        }
-      }); // Game ready notification
-      socket.on("game_ready", (data) => {
-        try {
-          if (data && data.game && typeof data.game === "object") {
-            setGame((prevGame) => {
-              const newGame = { ...data.game };
-              return newGame;
-            });
-            setError("🎉 Game is ready! Both players have joined.");
-            setTimeout(() => setError(""), 3000); // Force refresh to ensure we have the latest state
-            setTimeout(() => {
-              fetchGameDetails(true);
-            }, 1000); // Increased delay to reduce rapid calls
-          } else {
-            console.warn("Invalid game data received in game_ready:", data);
-            setError("Game ready but invalid data received");
-          }
-        } catch (err) {
-          console.error("Error handling game_ready:", err);
-          setError("Error processing game ready event");
-        }
-      }); // Move made by any player
-      socket.on("move_made", (moveData) => {
-        try {
-          if (moveData && moveData.game && typeof moveData.game === "object") {
-            if (moveData.player !== currentPlayer) {
-              setGame(moveData.game);
-              // Add visual feedback for opponent moves
-            }
-          } else {
-            console.warn("Invalid move data received:", moveData);
-          }
-        } catch (err) {
-          console.error("Error handling move_made:", err);
-          setError("Error processing move");
-        }
-      }); // Player joined the game
-      socket.on("player_joined", (data) => {
-        // If this indicates the game is ready, force a game state refresh
-        if (data.game_ready && data.player !== username) {
-          setError(`🎉 ${data.player} has joined! Game is ready to start.`);
-          setTimeout(() => setError(""), 4000); // Immediately refresh game state
-          setTimeout(() => {
-            fetchGameDetails(true);
-          }, 500); // Reduced delay but keep some debouncing
-        } else if (data.player !== username) {
-          setError(`👋 ${data.player} joined as ${data.role}.`);
-          setTimeout(() => setError(""), 3000); // Refresh game state for any player join
-          setTimeout(() => {
-            fetchGameDetails(true);
-          }, 800); // Increased delay to reduce rapid calls
-        }
+        if (data?.game) setGame(data.game);
       });
 
-      // Player left the game
-      socket.on("player_left", (data) => {
-        setError(`${data.player} has left the game`);
-        setTimeout(() => setError(""), 5000);
-      });
-
-      // Player disconnected
-      socket.on("player_disconnected", (data) => {
-        setError(`${data.player} has disconnected`);
+      socket.on("move_made", (data) => {
+        if (data?.game) setGame(data.game);
       });
 
       // Chat messages
@@ -149,344 +64,65 @@ const GameRoom = () => {
         setMessages((prev) => [...prev, message]);
       });
 
-      // Typing indicators
-      socket.on("user_typing", (data) => {
-        if (data.is_typing) {
-          setTypingUsers((prev) => new Set([...prev, data.user]));
-        } else {
-          setTypingUsers((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(data.user);
-            return newSet;
-          });
-        }
-
-        setTimeout(() => {
-          setTypingUsers((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(data.user);
-            return newSet;
-          });
-        }, 3000);
-      }); // Game over
-      socket.on("game_over", (result) => {
-        try {
-          if (result && typeof result === "object") {
-            setGame((prev) => ({
-              ...prev,
-              winner: result.winner,
-              is_draw: result.is_draw,
-            }));
-
-            // Show game result
-            if (result.is_draw) {
-              setError("Game ended in a draw!");
-            } else {
-              const winnerName =
-                result.winner_name || `Player ${result.winner}`;
-              setError(`🎉 ${winnerName} wins the game!`);
-            }
-          } else {
-            console.warn("Invalid game over data received:", result);
-            setError("Game ended with invalid data");
-          }
-        } catch (err) {
-          console.error("Error handling game_over:", err);
-          setError("Error processing game over event");
-        }
-      });
-
-      // Restart game handlers
-      socket.on("restart_requested", (data) => {
-        setRestartRequested(true);
-        setRestartRequestedBy(data.requesting_player);
-
-        if (data.requesting_player === currentPlayer) {
-          setError("Restart request sent! Waiting for other player...");
-        } else {
-          setError(`${data.requesting_player} wants to restart the game.`);
-        }
-      });
-      socket.on("game_restarted", (data) => {
-        try {
-          if (data && data.game && typeof data.game === "object") {
-            setGame(data.game);
-            setRestartRequested(false);
-            setRestartRequestedBy(null);
-            setError("🔄 Game has been restarted!");
-            setTimeout(() => setError(""), 3000);
-          } else {
-            console.warn("Invalid restart data received:", data);
-            setError("Game restart failed - invalid data");
-          }
-        } catch (err) {
-          console.error("Error handling game_restarted:", err);
-          setError("Error processing game restart");
-        }
-      });
-
-      // Game deletion handlers
-      socket.on("game_deleted", (data) => {
-        setError(
-          `🗑️ Game deleted by ${data.deleted_by}. Redirecting to lobby...`
-        );
-        setTimeout(() => {
-          navigate("/lobby");
-        }, 3000);
-      });
-      socket.on("game_auto_deleted", () => {
-        setError(
-          "🧹 Game automatically deleted due to inactivity. Redirecting to lobby..."
-        );
-        setTimeout(() => {
-          navigate("/lobby");
-        }, 3000);
-      });
-
-      // Socket errors
-      socket.on("error", (error) => {
-        console.error("Socket error:", error);
-        setError(error.message || "An error occurred");
-      });
-
-      // Connection events
-      socket.on("connect", () => {
-        setConnectionStatus("connected");
-        setError("");
-
-        // Re-join room on reconnect
-        socket.emit("join_room", {
-          room: gameId,
-          player: username,
-          timestamp: new Date().toISOString(),
-        });
-      });
-
-      socket.on("disconnect", () => {
-        setConnectionStatus("disconnected");
-        setError("Connection lost. Attempting to reconnect...");
-      });
-
-      return true;
-    };
-
-    // Try setup immediately
-    if (!setupSocketListeners()) {
-      setConnectionStatus("connecting");
-
-      // Retry setup when socket becomes available
-      const checkInterval = setInterval(() => {
-        if (setupSocketListeners()) {
-          clearInterval(checkInterval);
-        }
-      }, 1000);
-
-      return () => clearInterval(checkInterval);
+      // Game events
+      socket.on("player_joined", () => fetchGameDetails());
+      socket.on("game_over", () => fetchGameDetails());
     }
 
     return () => {
       if (socket) {
-        try {
-          socket.emit("leave_room", {
-            room: gameId,
-            player: username,
-            timestamp: new Date().toISOString(),
-          });
-        } catch {
-          // Error leaving room - continue cleanup
-        }
-
-        // Clean up all event listeners
-        const events = [
-          "game_state_update",
-          "game_ready",
-          "move_made",
-          "player_joined",
-          "player_left",
-          "player_disconnected",
-          "receive_message",
-          "user_typing",
-          "game_over",
-          "restart_requested",
-          "game_restarted",
-          "game_deleted",
-          "game_auto_deleted",
-          "error",
-          "connect",
-          "disconnect",
-        ];
-
-        events.forEach((event) => {
-          try {
-            socket.off(event);
-          } catch {
-            // Error removing event listener - continue cleanup
-          }
-        });
+        socket.emit("leave_room", { room: gameId, player: username });
+        socket.off("game_state_update");
+        socket.off("move_made");
+        socket.off("receive_message");
+        socket.off("player_joined");
+        socket.off("game_over");
       }
     };
-  }, [socket, gameId, navigate, currentPlayer]);
-  const fetchGameDetails = async (force = false) => {
-    if (!gameId) {
-      setError("Invalid game ID");
-      setLoading(false);
-      return;
-    } // Prevent concurrent API calls
-    if (fetchInProgress && !force) {
-      return;
-    }
+  }, [socket, gameId, navigate, fetchGameDetails]);
 
-    // Debounce API calls - prevent rapid successive calls
-    const now = Date.now();
-    if (!force && now - lastFetchTime < 3000) {
-      return;
-    }
+  const handleSquareClick = (index) => {
+    if (!game || !socket || !currentPlayer) return;
 
-    setFetchInProgress(true);
-    setLastFetchTime(now);
-    try {
-      const gameData = await getGameDetails(gameId);
-      if (gameData && typeof gameData === "object") {
-        setGame(gameData);
-        setError("");
-      } else {
-        throw new Error("Invalid game data received");
-      }
-    } catch (error) {
-      console.error("Failed to fetch game details:", error);
-
-      if (error.response?.status === 404) {
-        setError(`Game ${gameId} not found. Redirecting to lobby...`);
-        setTimeout(() => {
-          navigate("/lobby");
-        }, 3000);
-      } else if (error.response?.status === 401) {
-        setError("Session expired. Please log in again.");
-        localStorage.removeItem("token");
-        localStorage.removeItem("username");
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
-      } else if (error.code === "ECONNABORTED") {
-        setError(
-          "Server timeout. Click 'Refresh Game' button above to try again."
-        );
-      } else if (
-        error.code === "NETWORK_ERROR" ||
-        error.code === "ECONNREFUSED"
-      ) {
-        setError(
-          "Cannot connect to server. Please check if the server is running."
-        );
-      } else {
-        setError("Failed to load game. Please try refreshing.");
-      }
-    } finally {
-      setLoading(false);
-      setFetchInProgress(false);
-    }
-  };
-  const handleRefreshGame = async () => {
-    setRefreshing(true);
-    setError("");
-
-    try {
-      // First test connection
-      const connectionTest = await testConnection();
-      if (!connectionTest.connected) {
-        setError(`Cannot connect to server: ${connectionTest.error}`);
-        return;
-      }
-
-      await fetchGameDetails(true);
-
-      // Re-emit join room to get latest game state from server
-      if (socket && currentPlayer) {
-        socket.emit("join_room", {
-          room: gameId,
-          player: currentPlayer,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      setError("Game refreshed successfully!");
-      setTimeout(() => setError(""), 2000);
-    } catch (error) {
-      console.error("Failed to refresh game:", error);
-      setError("Failed to refresh game");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-  const handleSquareClick = async (index) => {
-    // Safety check for game state
-    if (!game || !game.board) {
-      setError("Game not loaded yet. Please wait...");
-      return;
-    }
-
-    // Prevent moves on completed games
-    if (game.board[index] !== "" || game.winner || game.is_draw) {
-      return;
-    } // Use current game state - don't fetch fresh data for every move
-    const currentGame = game; // Check if both players are present
-    if (!currentGame.player_o) {
+    // Basic validations
+    if (game.board[index] !== "" || game.winner || game.is_draw) return;
+    if (!game.player_o) {
       setError("Waiting for another player to join!");
       return;
     }
 
     // Check if it's player's turn
     const isPlayerTurn =
-      (currentGame.current_turn === "X" &&
-        currentPlayer === currentGame.player_x) ||
-      (currentGame.current_turn === "O" &&
-        currentPlayer === currentGame.player_o);
+      (game.current_turn === "X" && currentPlayer === game.player_x) ||
+      (game.current_turn === "O" && currentPlayer === game.player_o);
 
     if (!isPlayerTurn) {
       setError("It's not your turn!");
       setTimeout(() => setError(""), 2000);
       return;
-    } // Clear any previous errors
-    setError("");
+    }
 
     // Make the move
-    if (socket && socket.connected) {
-      socket.emit("make_move", {
-        room: gameId,
-        index: index,
-        symbol: currentGame.current_turn,
-        player: currentPlayer,
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      setError("Not connected to server. Please wait...");
-    }
+    socket.emit("make_move", {
+      room: gameId,
+      index: index,
+      symbol: game.current_turn,
+      player: currentPlayer,
+    });
   };
 
   const sendMessage = (text) => {
     if (socket && currentPlayer) {
-      const message = {
+      socket.emit("send_message", {
         room: gameId,
         sender: currentPlayer,
         text: text,
         timestamp: Date.now(),
-      };
-      socket.emit("send_message", message);
-    }
-  };
-
-  // Enhanced typing indicator
-  const handleTyping = (isTyping) => {
-    if (socket && currentPlayer) {
-      socket.emit("typing_indicator", {
-        room: gameId,
-        user: currentPlayer,
-        is_typing: isTyping,
       });
     }
   };
 
-  const requestGameRestart = () => {
+  const requestRestart = () => {
     if (socket && currentPlayer) {
       socket.emit("request_game_restart", {
         room: gameId,
@@ -494,369 +130,293 @@ const GameRoom = () => {
       });
     }
   };
+  const leaveGame = () => navigate("/lobby");
 
-  const acceptGameRestart = () => {
-    if (socket && currentPlayer) {
-      socket.emit("accept_restart", {
-        room: gameId,
-        player: currentPlayer,
-      });
-      setRestartRequested(false);
-      setRestartRequestedBy(null);
-      setError("Restart accepted! Waiting for game to restart...");
+  const isCurrentPlayerTurn = () => {
+    if (!game || !game.player_o) return false;
+    const playerRole =
+      currentPlayer === game.player_x
+        ? "X"
+        : currentPlayer === game.player_o
+        ? "O"
+        : "spectator";
+    return playerRole !== "spectator" && game.current_turn === playerRole;
+  };
+
+  // Enhanced control functions
+  const reloadGameState = async () => {
+    setLoading(true);
+    try {
+      await fetchGameDetails();
+      if (socket && currentPlayer) {
+        socket.emit("join_room", { room: gameId, player: currentPlayer });
+      }
+    } catch (error) {
+      setError("Failed to reload game state");
+    } finally {
+      setLoading(false);
     }
   };
 
   const deleteGame = () => {
     if (socket && currentPlayer) {
-      socket.emit("delete_finished_game", {
-        room: gameId,
-        player: currentPlayer,
-      });
-    }
-  };
-
-  const refreshGameState = () => {
-    setError("Refreshing game state...");
-    fetchGameDetails();
-    if (socket && currentPlayer) {
-      // Re-emit join room to get latest state
-      socket.emit("join_room", {
-        room: gameId,
-        player: currentPlayer,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    setTimeout(() => {
-      if (error === "Refreshing game state...") {
-        setError("");
+      const confirmDelete = window.confirm(
+        "Are you sure you want to delete this game? This action cannot be undone."
+      );
+      if (confirmDelete) {
+        socket.emit("delete_game_from_lobby", {
+          game_id: gameId,
+          player: currentPlayer,
+        });
       }
-    }, 2000);
-  };
-
-  const reloadConnection = () => {
-    if (socket) {
-      // Force disconnect and reconnect
-      socket.disconnect();
-      setTimeout(() => {
-        socket.connect();
-      }, 1000);
     }
-    setError("Reloading connection...");
   };
 
-  const leaveGame = () => {
-    navigate("/lobby");
-  };
-  const getCurrentPlayerRole = () => {
-    if (!game) return "spectator";
-    if (currentPlayer === game.player_x) return "X";
-    if (currentPlayer === game.player_o) return "O";
-    return "spectator";
+  const isGameCompleted = () => {
+    return game && (game.winner || game.is_draw);
   };
 
-  const isCurrentPlayerTurn = () => {
-    if (!game || !game.player_o) return false; // Can't play until both players are present
-    const playerRole = getCurrentPlayerRole();
-    return playerRole !== "spectator" && game.current_turn === playerRole;
+  const canControlGame = () => {
+    return currentPlayer === game.player_x || currentPlayer === game.player_o;
   };
-
-  const getOpponentName = () => {
-    if (!game) return null;
-    if (currentPlayer === game.player_x) return game.player_o;
-    if (currentPlayer === game.player_o) return game.player_x;
-    return null;
-  };
-
   if (loading) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Loading game...</p>
+      <div className="min-h-screen bg-cyber-black flex items-center justify-center">
+        <div className="cyber-card p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-neon-green border-t-transparent mx-auto mb-4"></div>
+          <p className="text-neon-cyan font-mono">LOADING GAME MATRIX...</p>
         </div>
-      </div>
-    );
-  }
-  // Add error state handling
-  if (error && error.includes("not found")) {
-    return (
-      <div className="container mx-auto p-4">
-        <div className="bg-red-100 text-red-700 p-4 rounded mb-4">
-          <h2 className="text-xl font-bold mb-2">Game Not Found</h2>
-          <p>{error}</p>
-        </div>
-        <button
-          className="bg-blue-500 text-white py-2 px-4 rounded"
-          onClick={() => navigate("/lobby")}
-        >
-          Back to Lobby
-        </button>
       </div>
     );
   }
 
-  // Safety check for game state
   if (!game) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Loading game data...</p>
+      <div className="min-h-screen bg-cyber-black flex items-center justify-center">
+        <div className="cyber-card p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <div className="text-6xl mb-4 animate-neon-pulse">🎮</div>
+            <h2 className="text-2xl font-bold text-neon-green mb-4 neon-text font-mono">
+              GAME NOT FOUND
+            </h2>
+            <p className="text-neon-cyan mb-6 font-mono">
+              The game you're looking for doesn't exist or has been deleted.
+            </p>
+            <button
+              className="btn-neon w-full py-3 font-mono"
+              onClick={() => navigate("/lobby")}
+            >
+              🏠 BACK TO LOBBY
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      {" "}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">
-            Game Room: {gameId}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                connectionStatus === "connected"
-                  ? "bg-green-500"
-                  : connectionStatus === "connecting"
-                  ? "bg-yellow-500"
-                  : "bg-red-500"
-              }`}
-            ></div>
-            <span className="text-sm text-gray-600 capitalize">
-              {connectionStatus}
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 flex items-center gap-2 transition-colors"
-            onClick={handleRefreshGame}
-            disabled={refreshing}
-          >
-            <span className={refreshing ? "animate-spin" : ""}>🔄</span>
-            {refreshing ? "Refreshing..." : "Refresh Game"}
-          </button>
-          {connectionStatus === "disconnected" && (
-            <button
-              className="bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 flex items-center gap-2"
-              onClick={reloadConnection}
-            >
-              🔌 Reconnect
-            </button>
-          )}
-          <button
-            className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 flex items-center gap-2"
-            onClick={leaveGame}
-          >
-            🚪 Leave Game
-          </button>
-        </div>
+    <div className="min-h-screen bg-cyber-black relative overflow-hidden">
+      {/* Floating Particles */}
+      <div className="floating-particles">
+        {[...Array(10)].map((_, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 8}s`,
+              animationDuration: `${6 + Math.random() * 4}s`,
+            }}
+          />
+        ))}
       </div>
-      {error && (
-        <div
-          className={`p-3 rounded mb-4 ${
-            error.includes("🎉")
-              ? "bg-green-100 text-green-700"
-              : error.includes("joined") || error.includes("ready")
-              ? "bg-blue-100 text-blue-700"
-              : "bg-red-100 text-red-700"
-          }`}
-        >
-          {error}
-        </div>
-      )}{" "}
-      {(game?.winner || game?.is_draw) && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 p-4 rounded mb-4">
-          <div className="flex flex-col space-y-3">
-            <div className="text-center text-lg font-semibold">
-              {game?.is_draw
-                ? "🤝 Game ended in a draw!"
-                : `🎉 ${
-                    game?.winner === "X"
-                      ? game?.player_x || "Player X"
-                      : game?.player_o || "Player O"
-                  } (Player ${game?.winner}) wins!`}
-            </div>
 
-            {/* Show restart request status if pending */}
-            {restartRequested && (
-              <div className="text-center text-sm">
-                {restartRequestedBy === currentPlayer
-                  ? "⏳ Waiting for opponent to accept restart..."
-                  : `⏳ ${restartRequestedBy} has requested a restart`}
+      {/* Animated Background Grid */}
+      <div className="absolute inset-0 game-grid opacity-10"></div>
+
+      <div className="relative z-10 min-h-screen">
+        <div className="container mx-auto px-4 py-6">
+          {/* Header Section */}
+          <div className="cyber-card p-6 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-neon-green mb-2 flex items-center gap-2 neon-text font-mono">
+                  🎮 GAME ROOM
+                </h1>
+                <p className="text-neon-cyan font-mono">
+                  GAME ID:{" "}
+                  <span className="font-mono font-medium text-neon-purple">
+                    {gameId}
+                  </span>
+                </p>
               </div>
-            )}
 
-            {/* Action buttons */}
-            <div className="flex justify-center gap-2">
-              {(currentPlayer === game.player_x ||
-                currentPlayer === game.player_o) &&
-                !restartRequested && (
+              {/* Control Buttons */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="btn-neon-cyan text-sm px-4 py-2 font-mono"
+                  onClick={reloadGameState}
+                  disabled={loading}
+                  title="Refresh game state"
+                >
+                  🔄 RELOAD
+                </button>
+
+                {canControlGame() && isGameCompleted() && (
                   <button
-                    className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
-                    onClick={requestGameRestart}
+                    className="btn-neon text-sm px-4 py-2 font-mono"
+                    onClick={requestRestart}
+                    title="Request to play again"
                   >
-                    🔄 Play Again
+                    🔁 PLAY AGAIN
                   </button>
                 )}
 
-              {(currentPlayer === game.player_x ||
-                currentPlayer === game.player_o) && (
-                <button
-                  className="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 transition-colors"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "Are you sure you want to delete this game? This action cannot be undone."
-                      )
-                    ) {
-                      deleteGame();
-                    }
-                  }}
-                >
-                  🗑️ Delete Game
-                </button>
-              )}
+                {canControlGame() && isGameCompleted() && (
+                  <button
+                    className="bg-neon-pink/20 hover:bg-neon-pink/30 text-neon-pink border-2 border-neon-pink text-sm px-4 py-2 rounded-md font-mono font-bold transition-all duration-300"
+                    onClick={deleteGame}
+                    title="Delete this game"
+                  >
+                    🗑️ DELETE
+                  </button>
+                )}
 
-              <button
-                className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors"
-                onClick={() => navigate("/lobby")}
-              >
-                🏠 Back to Lobby
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Show restart request notification */}
-      {restartRequested &&
-        restartRequestedBy &&
-        restartRequestedBy !== currentPlayer && (
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 p-4 rounded mb-4">
-            <div className="flex justify-between items-center">
-              <div>🔄 {restartRequestedBy} wants to restart the game</div>
-              <div className="flex gap-2">
                 <button
-                  className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 transition-colors"
-                  onClick={acceptGameRestart}
+                  className="bg-text-muted/20 hover:bg-text-muted/30 text-text-muted border-2 border-text-muted text-sm px-4 py-2 rounded-md font-mono font-bold transition-all duration-300"
+                  onClick={leaveGame}
+                  title="Leave game and return to lobby"
                 >
-                  ✅ Accept
-                </button>
-                <button
-                  className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 transition-colors"
-                  onClick={() => {
-                    setRestartRequested(false);
-                    setRestartRequestedBy(null);
-                    setError("Restart request declined");
-                    setTimeout(() => setError(""), 2000);
-                  }}
-                >
-                  ❌ Decline
+                  🚪 LEAVE
                 </button>
               </div>
             </div>
           </div>
-        )}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <h2 className="text-xl font-semibold mb-3">Players</h2>
-          {/* Connection Status Indicator */}
-          <div
-            className={`mb-3 p-3 rounded flex justify-between items-center ${
-              connectionStatus === "connected"
-                ? "bg-green-100 text-green-700"
-                : connectionStatus === "disconnected"
-                ? "bg-red-100 text-red-700"
-                : "bg-yellow-100 text-yellow-700"
-            }`}
-          >
-            <span className="text-sm font-medium">
-              Connection: {connectionStatus}
-            </span>
-            {connectionStatus === "disconnected" && (
-              <button
-                className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
-                onClick={reloadConnection}
-              >
-                🔄 Reload
-              </button>
-            )}
-          </div>{" "}
-          <div className="space-y-3">
-            <PlayerInfo
-              player={{ username: game.player_x || "Player X", symbol: "X" }}
-              isActive={
-                game.current_turn === "X" &&
-                game.player_o &&
-                !game.winner &&
-                !game.is_draw
-              }
-              isCurrentUser={currentPlayer === game.player_x}
-              isWaiting={false}
-              isConnected={true}
-            />
 
-            <PlayerInfo
-              player={{
-                username: game.player_o || "Waiting for Player O...",
-                symbol: "O",
-              }}
-              isActive={
-                game.current_turn === "O" && !game.winner && !game.is_draw
-              }
-              isCurrentUser={currentPlayer === game.player_o}
-              isWaiting={!game.player_o}
-              isConnected={true}
-            />
-          </div>
-          <div className="mt-4">
-            {game.player_o ? (
-              isCurrentPlayerTurn() ? (
-                <div className="bg-green-100 p-2 rounded text-center">
-                  Your turn! (Playing as {getCurrentPlayerRole()})
-                </div>
-              ) : getCurrentPlayerRole() !== "spectator" ? (
-                <div className="bg-gray-100 p-2 rounded text-center">
-                  {getOpponentName()}'s turn (
-                  {game.current_turn === "X" ? "X" : "O"})
-                </div>
-              ) : (
-                <div className="bg-blue-100 p-2 rounded text-center">
-                  Spectating:{" "}
-                  {game.current_turn === "X" ? game.player_x : game.player_o}'s
-                  turn
-                </div>
-              )
-            ) : (
-              <div className="bg-yellow-100 p-2 rounded text-center">
-                Waiting for opponent
+          {/* Error Message */}
+          {error && (
+            <div className="bg-neon-pink/10 border-2 border-neon-pink text-neon-pink p-4 rounded-lg mb-6 animate-neon-flicker">
+              <div className="flex items-center gap-2 font-mono">
+                <span>⚠️</span>
+                <span className="uppercase tracking-wide">{error}</span>
               </div>
-            )}
-          </div>
-          {/* Typing indicators */}
-          {typingUsers.size > 0 && (
-            <div className="mt-2 text-sm text-gray-500">
-              {Array.from(typingUsers).join(", ")}{" "}
-              {typingUsers.size === 1 ? "is" : "are"} typing...
             </div>
           )}
-        </div>
 
-        <div className="flex items-center justify-center">
-          <GameBoard board={game.board} onSquareClick={handleSquareClick} />
-        </div>
+          {/* Game Result Banner */}
+          {isGameCompleted() && (
+            <div className="cyber-card p-6 mb-6 bg-neon-green/5 border-neon-green/20">
+              <div className="text-center">
+                <div className="text-4xl mb-3 animate-neon-pulse">
+                  {game.is_draw ? "🤝" : "🎉"}
+                </div>
+                <h2 className="text-2xl font-bold text-neon-green mb-4 neon-text font-mono">
+                  {game.is_draw
+                    ? "GAME ENDED IN DRAW!"
+                    : `${
+                        game.winner === "X" ? game.player_x : game.player_o
+                      } WINS!`}
+                </h2>
+                <p className="text-neon-cyan mb-4 font-mono">
+                  {game.is_draw
+                    ? "EXCELLENT STRATEGY FROM BOTH PLAYERS"
+                    : `PLAYER ${game.winner} ACHIEVED VICTORY!`}
+                </p>
+              </div>
+            </div>
+          )}
 
-        <div>
-          <h2 className="text-xl font-semibold mb-3">Chat</h2>
-          <ChatBox
-            messages={messages}
-            sendMessage={sendMessage}
-            onTyping={handleTyping}
-          />
+          {/* Main Game Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Players Section */}
+            <div className="lg:col-span-1">
+              <div className="cyber-card p-6">
+                <h2 className="text-xl font-semibold text-neon-green mb-4 flex items-center gap-2 neon-text font-mono">
+                  👥 PLAYERS
+                </h2>
+                <div className="space-y-4">
+                  <PlayerInfo
+                    player={{
+                      username: game.player_x || "Player X",
+                      symbol: "X",
+                    }}
+                    isActive={
+                      game.current_turn === "X" &&
+                      game.player_o &&
+                      !game.winner &&
+                      !game.is_draw
+                    }
+                    isCurrentUser={currentPlayer === game.player_x}
+                    isWaiting={false}
+                    isConnected={true}
+                  />
+                  <PlayerInfo
+                    player={{
+                      username: game.player_o || "Waiting for Player O...",
+                      symbol: "O",
+                    }}
+                    isActive={
+                      game.current_turn === "O" && !game.winner && !game.is_draw
+                    }
+                    isCurrentUser={currentPlayer === game.player_o}
+                    isWaiting={!game.player_o}
+                    isConnected={true}
+                  />
+                </div>
+
+                {/* Game Status */}
+                <div className="mt-6">
+                  {game.player_o ? (
+                    isCurrentPlayerTurn() ? (
+                      <div className="bg-neon-green/10 border-2 border-neon-green text-neon-green p-3 rounded-lg text-center">
+                        <div className="font-medium font-mono neon-text">
+                          🎯 YOUR TURN!
+                        </div>
+                        <div className="text-sm opacity-75 font-mono">
+                          MAKE YOUR MOVE
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-cyber-darker border-2 border-neon-cyan/30 text-neon-cyan p-3 rounded-lg text-center">
+                        <div className="font-medium font-mono">
+                          ⏳ WAITING FOR OPPONENT
+                        </div>
+                        <div className="text-sm font-mono">
+                          {currentPlayer === game.player_x
+                            ? game.player_o
+                            : game.player_x}
+                          'S TURN
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="bg-neon-yellow/10 border-2 border-neon-yellow text-neon-yellow p-3 rounded-lg text-center">
+                      <div className="font-medium font-mono">
+                        🔍 WAITING FOR OPPONENT
+                      </div>
+                      <div className="text-sm font-mono">
+                        SHARE GAME ID TO INVITE
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Game Board Section */}
+            <div className="lg:col-span-2 flex items-center justify-center">
+              <GameBoard
+                board={game.board}
+                onSquareClick={handleSquareClick}
+                disabled={!isCurrentPlayerTurn() || isGameCompleted()}
+              />
+            </div>
+
+            {/* Chat Section */}
+            <div className="lg:col-span-1">
+              <ChatBox messages={messages} sendMessage={sendMessage} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

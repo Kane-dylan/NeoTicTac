@@ -1,1 +1,430 @@
 @import "tailwindcss";
+
+/* Retro Arcade Global Styles */
+:root {
+  --scan-line-height: 2px;
+  --neon-glow: 0 0 5px currentColor, 0 0 10px currentColor,
+    0 0 15px currentColor;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  background: linear-gradient(45deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+  color: #ffffff;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* CRT Scanlines Effect */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 65, 0.03) 2px,
+    rgba(0, 255, 65, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+  animation: scanlines 0.1s linear infinite;
+}
+
+@keyframes scanlines {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(4px);
+  }
+}
+
+/* Neon Utility Classes */
+.neon-text {
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor,
+    0 0 15px currentColor;
+}
+
+.neon-border {
+  border: 2px solid currentColor;
+  box-shadow: 0 0 10px currentColor, inset 0 0 10px rgba(0, 255, 65, 0.1);
+}
+
+.neon-glow {
+  box-shadow: 0 0 20px currentColor, 0 0 40px currentColor,
+    0 0 60px currentColor;
+}
+
+/* Button Styles */
+.btn-neon {
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  border: 2px solid #00ff41;
+  background: transparent;
+  color: #00ff41;
+  text-shadow: 0 0 5px currentColor;
+}
+
+.btn-neon:hover {
+  background: #00ff41;
+  color: #0a0a0a;
+  box-shadow: 0 0 10px currentColor, 0 0 20px currentColor,
+    0 0 30px currentColor;
+}
+
+.btn-neon-pink {
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  border: 2px solid #ff0080;
+  background: transparent;
+  color: #ff0080;
+  text-shadow: 0 0 5px currentColor;
+}
+
+.btn-neon-pink:hover {
+  background: #ff0080;
+  color: #0a0a0a;
+  box-shadow: 0 0 10px currentColor, 0 0 20px currentColor,
+    0 0 30px currentColor;
+}
+
+.btn-neon-cyan {
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  border: 2px solid #00ffff;
+  background: transparent;
+  color: #00ffff;
+  text-shadow: 0 0 5px currentColor;
+}
+
+.btn-neon-cyan:hover {
+  background: #00ffff;
+  color: #0a0a0a;
+  box-shadow: 0 0 10px currentColor, 0 0 20px currentColor,
+    0 0 30px currentColor;
+}
+
+/* Card Styles */
+.cyber-card {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 26, 46, 0.9) 0%,
+    rgba(22, 33, 62, 0.9) 100%
+  );
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 255, 65, 0.1),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.cyber-card:hover::before {
+  left: 100%;
+}
+
+/* Input Styles */
+.cyber-input {
+  background: rgba(10, 10, 10, 0.8);
+  border: 2px solid rgba(0, 255, 65, 0.4);
+  color: #ffffff;
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  transition: all 0.3s ease;
+}
+
+.cyber-input:focus {
+  outline: none;
+  border-color: #00ff41;
+  box-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+  text-shadow: 0 0 5px #00ff41;
+}
+
+.cyber-input::placeholder {
+  color: #808080;
+}
+
+/* Game Board Grid Effect */
+.game-grid {
+  background-image: linear-gradient(rgba(0, 255, 65, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Floating Particles */
+.floating-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #00ff41;
+  border-radius: 50%;
+  animation: float-particle 10s linear infinite;
+  box-shadow: 0 0 5px #00ff41;
+}
+
+@keyframes float-particle {
+  0% {
+    transform: translateY(100vh) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-10px) translateX(100px);
+    opacity: 0;
+  }
+}
+
+/* Additional Retro Effects */
+.glitch-text {
+  animation: glitch 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes glitch {
+  0% {
+    text-shadow: 0.05em 0 0 #00ff41, -0.05em -0.025em 0 #ff0080,
+      0.025em 0.05em 0 #00ffff;
+  }
+  15% {
+    text-shadow: 0.05em 0 0 #00ff41, -0.05em -0.025em 0 #ff0080,
+      0.025em 0.05em 0 #00ffff;
+  }
+  16% {
+    text-shadow: -0.05em -0.025em 0 #00ff41, 0.025em 0.025em 0 #ff0080,
+      -0.05em -0.05em 0 #00ffff;
+  }
+  49% {
+    text-shadow: -0.05em -0.025em 0 #00ff41, 0.025em 0.025em 0 #ff0080,
+      -0.05em -0.05em 0 #00ffff;
+  }
+  50% {
+    text-shadow: 0.025em 0.05em 0 #00ff41, 0.05em 0 0 #ff0080,
+      0 -0.05em 0 #00ffff;
+  }
+  99% {
+    text-shadow: 0.025em 0.05em 0 #00ff41, 0.05em 0 0 #ff0080,
+      0 -0.05em 0 #00ffff;
+  }
+  100% {
+    text-shadow: -0.025em 0 0 #00ff41, -0.025em -0.025em 0 #ff0080,
+      -0.025em -0.05em 0 #00ffff;
+  }
+}
+
+/* Terminal Style */
+.terminal-window {
+  background: #0a0a0a;
+  border: 2px solid #00ff41;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+}
+
+.terminal-window::before {
+  content: "● ● ●";
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  color: #00ff41;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* Additional smooth animations for enhanced background */
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes wiggle-reverse {
+  0%,
+  100% {
+    transform: rotate(3deg);
+  }
+  50% {
+    transform: rotate(-3deg);
+  }
+}
+
+@keyframes morph {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 50% 40% 30% 70%;
+  }
+  25% {
+    transform: scale(1.1) rotate(90deg);
+    border-radius: 60% 30% 70% 40%;
+  }
+  50% {
+    transform: scale(0.9) rotate(180deg);
+    border-radius: 30% 60% 40% 70%;
+  }
+  75% {
+    transform: scale(1.05) rotate(270deg);
+    border-radius: 70% 40% 60% 30%;
+  }
+}
+
+@keyframes morph-blob {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  33% {
+    transform: scale(1.1) skew(10deg);
+  }
+  66% {
+    transform: scale(0.9) skew(-10deg);
+  }
+}
+
+@keyframes morph-blob-reverse {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  33% {
+    transform: scale(0.9) rotate(120deg);
+  }
+  66% {
+    transform: scale(1.1) rotate(240deg);
+  }
+}
+
+@keyframes bounce-subtle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes float-path {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-5px) translateX(3px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(0);
+  }
+  75% {
+    transform: translateY(-5px) translateX(-3px);
+  }
+}
+
+@keyframes float-path-reverse {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-5px) translateX(-3px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(0);
+  }
+  75% {
+    transform: translateY(-5px) translateX(3px);
+  }
+}
+
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+/* New animation classes */
+.animate-wiggle {
+  animation: wiggle 2s ease-in-out infinite;
+}
+
+.animate-wiggle-reverse {
+  animation: wiggle-reverse 2.5s ease-in-out infinite;
+}
+
+.animate-morph {
+  animation: morph 8s ease-in-out infinite;
+}
+
+.animate-morph-blob {
+  animation: morph-blob 6s ease-in-out infinite;
+}
+
+.animate-morph-blob-reverse {
+  animation: morph-blob-reverse 7s ease-in-out infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 3s ease-in-out infinite;
+}
+
+.animate-float-path {
+  animation: float-path 4s ease-in-out infinite;
+}
+
+.animate-float-path-reverse {
+  animation: float-path-reverse 5s ease-in-out infinite;
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 12s linear infinite;
+}

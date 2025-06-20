@@ -7,64 +7,128 @@ const PlayerInfo = ({
   isWaiting = false,
   isConnected = true,
 }) => {
-  const getStatusColor = () => {
-    if (isWaiting) return "bg-yellow-100 border-yellow-300";
-    if (isActive) return "bg-green-100 border-green-300";
-    return "bg-gray-100 border-gray-300";
+  const getStatusIndicator = () => {
+    if (isWaiting) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-neon-yellow rounded-full animate-pulse"></div>
+          <span className="text-xs font-medium text-neon-yellow font-mono uppercase">
+            WAITING...
+          </span>
+        </div>
+      );
+    }
+
+    if (!isConnected) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-neon-pink rounded-full"></div>
+          <span className="text-xs font-medium text-neon-pink font-mono uppercase">
+            DISCONNECTED
+          </span>
+        </div>
+      );
+    }
+
+    if (isActive) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse"></div>
+          <span className="text-xs font-medium text-neon-green font-mono uppercase neon-text">
+            YOUR TURN!
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 bg-text-muted rounded-full"></div>
+        <span className="text-xs font-medium text-text-muted font-mono uppercase">
+          WAITING FOR TURN
+        </span>
+      </div>
+    );
+  };
+
+  const getCardStyles = () => {
+    let baseStyles = "cyber-card p-4 transition-all duration-200";
+
+    if (isCurrentUser) {
+      baseStyles += " ring-2 ring-neon-purple/50 bg-neon-purple/5";
+    }
+
+    if (isActive && !isWaiting) {
+      baseStyles += " shadow-neon border-neon-green/50";
+    }
+
+    return baseStyles;
   };
 
   const getSymbolIcon = (symbol) => {
-    return symbol === "X" ? "❌" : symbol === "O" ? "⭕" : "❓";
+    if (symbol === "X") return "✕";
+    if (symbol === "O") return "◯";
+    return "❓";
+  };
+
+  const getSymbolColor = (symbol) => {
+    if (symbol === "X") return "text-neon-pink";
+    if (symbol === "O") return "text-neon-cyan";
+    return "text-text-muted";
   };
 
   return (
-    <div
-      className={`p-4 rounded-lg border-2 transition-all duration-300 ${getStatusColor()} ${
-        isCurrentUser ? "ring-2 ring-blue-400 shadow-md" : ""
-      } ${!isConnected ? "opacity-75" : ""}`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-bold flex items-center gap-2 text-gray-800">
-          <span className="text-lg">{getSymbolIcon(player.symbol)}</span>
-          {player.username || "Waiting..."}
-          {isCurrentUser && (
-            <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full">
-              YOU
+    <div className={getCardStyles()}>
+      {/* Player Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-cyber-darker border-2 border-neon-green">
+            <span
+              className={`text-xl font-bold ${getSymbolColor(
+                player.symbol
+              )} neon-text`}
+            >
+              {getSymbolIcon(player.symbol)}
             </span>
-          )}
-        </h3>
-        <div className="flex items-center gap-1">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              isConnected ? "bg-green-500" : "bg-red-500"
-            }`}
-            title={isConnected ? "Connected" : "Disconnected"}
-          ></div>
+          </div>
+          <div>
+            <h3 className="font-semibold text-neon-green flex items-center gap-2 font-mono neon-text">
+              {player.username || "WAITING..."}
+              {isCurrentUser && (
+                <span className="text-xs bg-neon-purple text-cyber-black px-2 py-1 rounded-full font-bold">
+                  YOU
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-neon-cyan font-mono">
+              PLAYER {player.symbol || "?"}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-1">
-        <p className="text-sm text-gray-600">
-          Symbol: <span className="font-medium">{player.symbol || "?"}</span>
-        </p>
+      {/* Status Indicator */}
+      <div className="flex items-center justify-between">
+        {getStatusIndicator()}
 
-        {isWaiting && (
-          <p className="text-xs text-yellow-600 font-medium flex items-center gap-1">
-            <span className="animate-pulse">⏳</span>
-            Waiting for player...
-          </p>
-        )}
-
-        {isActive && !isWaiting && (
-          <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-            <span className="animate-bounce">🎯</span>
-            Your turn!
-          </p>
-        )}
-
-        {!isActive && !isWaiting && player.username && (
-          <p className="text-xs text-gray-500">Waiting for turn...</p>
-        )}
+        {/* Connection Quality Indicator */}
+        <div className="flex items-center gap-1">
+          <div
+            className={`w-1 h-3 rounded-full ${
+              isConnected ? "bg-neon-green" : "bg-neon-pink"
+            }`}
+          ></div>
+          <div
+            className={`w-1 h-4 rounded-full ${
+              isConnected ? "bg-neon-green" : "bg-text-muted"
+            }`}
+          ></div>
+          <div
+            className={`w-1 h-5 rounded-full ${
+              isConnected ? "bg-neon-green" : "bg-text-muted"
+            }`}
+          ></div>
+        </div>
       </div>
     </div>
   );
