@@ -20,14 +20,14 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background-secondary">
-          <div className="card p-8 max-w-md w-full mx-4">
+        <div className="min-h-screen flex items-center justify-center bg-cyber-black">
+          <div className="cyber-card p-8 max-w-md w-full mx-4">
             <div className="text-center">
-              <div className="text-6xl mb-6">💥</div>
-              <h2 className="text-2xl font-bold text-text-primary mb-4">
-                Oops! Something went wrong
+              <div className="text-6xl mb-6 animate-neon-pulse">💥</div>
+              <h2 className="text-2xl font-bold text-neon-green mb-4 neon-text font-mono">
+                SYSTEM ERROR
               </h2>
-              <p className="text-text-secondary mb-6 leading-relaxed">
+              <p className="text-neon-cyan mb-6 leading-relaxed font-mono">
                 {this.props.fallbackMessage ||
                   "We encountered an unexpected error. Don't worry, this happens sometimes in the digital world!"}
               </p>
@@ -35,30 +35,30 @@ class ErrorBoundary extends React.Component {
               <div className="space-y-3">
                 <button
                   onClick={this.handleReset}
-                  className="btn-primary w-full py-3"
+                  className="btn-neon w-full py-3 font-mono"
                 >
-                  🔄 Try Again
+                  🔄 TRY AGAIN
                 </button>
                 <div className="flex gap-3">
                   <button
                     onClick={() => (window.location.href = "/lobby")}
-                    className="btn-secondary flex-1 py-2"
+                    className="btn-neon-cyan flex-1 py-2 font-mono"
                   >
-                    🏠 Go to Lobby
+                    🏠 LOBBY
                   </button>
                   <button
                     onClick={() => window.location.reload()}
-                    className="bg-accent-info hover:bg-accent-info/90 text-text-inverse flex-1 py-2 rounded-md font-medium transition-all duration-200"
+                    className="btn-neon-pink flex-1 py-2 font-mono"
                   >
-                    🔄 Refresh
+                    🔄 REFRESH
                   </button>
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-border-light">
-                <p className="text-xs text-text-muted">
-                  If this problem persists, try clearing your browser cache or
-                  contact support.
+              <div className="mt-6 pt-6 border-t border-neon-green/30">
+                <p className="text-xs text-text-muted font-mono">
+                  // If this problem persists, try clearing your browser cache
+                  or contact support.
                 </p>
               </div>
             </div>

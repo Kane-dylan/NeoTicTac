@@ -25,117 +25,141 @@ const Register = () => {
     }
   };
   return (
-    <div className="min-h-screen bg-background-secondary flex items-center justify-center px-4">
-      <div className="card p-8 w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-4">🎮</div>
-          <h2 className="text-3xl font-bold text-text-primary mb-2">
-            Join the Game
-          </h2>
-          <p className="text-text-secondary">
-            Create your account to start playing
-          </p>
-        </div>
+    <div className="min-h-screen bg-cyber-black relative overflow-hidden">
+      {/* Floating Particles */}
+      <div className="floating-particles">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 8}s`,
+              animationDuration: `${6 + Math.random() * 3}s`,
+            }}
+          />
+        ))}
+      </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-accent-error/10 border border-accent-error/20 text-accent-error p-4 rounded-lg mb-6">
-            <div className="flex items-center gap-2">
-              <span>⚠️</span>
-              <span className="text-sm">{error}</span>
-            </div>
-          </div>
-        )}
+      {/* Animated Background Grid */}
+      <div className="absolute inset-0 game-grid opacity-15"></div>
 
-        {/* Registration Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="input-field w-full"
-              placeholder="Choose a unique username"
-              required
-              minLength={3}
-              maxLength={20}
-            />
-            <p className="text-xs text-text-muted mt-1">
-              3-20 characters, will be visible to other players
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+        <div className="cyber-card rounded-lg p-8 w-full max-w-md animate-float-up">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4 animate-neon-pulse">🎮</div>
+            <h2 className="text-3xl font-bold text-neon-green mb-3 neon-text font-mono glitch-text">
+              USER REGISTRATION
+            </h2>
+            <p className="text-neon-cyan text-sm font-mono">
+              CREATE NEW ACCOUNT • JOIN THE GRID
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field w-full"
-              placeholder="Create a secure password"
-              required
-              minLength={6}
-            />
-            <p className="text-xs text-text-muted mt-1">Minimum 6 characters</p>
-          </div>
+          {/* Error Message */}
+          {error && (
+            <div className="bg-neon-pink/10 border-2 border-neon-pink text-neon-pink p-4 rounded-lg mb-6 animate-neon-flicker">
+              <div className="flex items-center gap-2 font-mono">
+                <span className="text-lg">⚠</span>
+                <span className="text-sm uppercase tracking-wide">{error}</span>
+              </div>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="input-field w-full"
-              placeholder="Confirm your password"
-              required
-            />
-            {confirmPassword && password !== confirmPassword && (
-              <p className="text-xs text-accent-error mt-1">
-                Passwords do not match
+          {/* Registration Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-mono font-bold text-neon-green mb-2 uppercase tracking-wider">
+                &gt; Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="cyber-input w-full p-3 rounded font-mono text-neon-green"
+                placeholder="choose.username"
+                required
+                minLength={3}
+                maxLength={20}
+              />
+              <p className="text-xs text-text-muted mt-1 font-mono">
+                // 3-20 chars, visible to other players
               </p>
-            )}
-            {confirmPassword && password === confirmPassword && (
-              <p className="text-xs text-accent-success mt-1">
-                ✓ Passwords match
+            </div>
+
+            <div>
+              <label className="block text-sm font-mono font-bold text-neon-green mb-2 uppercase tracking-wider">
+                &gt; Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="cyber-input w-full p-3 rounded font-mono text-neon-green"
+                placeholder="create.password"
+                required
+                minLength={6}
+              />
+              <p className="text-xs text-text-muted mt-1 font-mono">
+                // minimum 6 characters
               </p>
-            )}
-          </div>
+            </div>
 
-          <button
-            type="submit"
-            className="btn-primary w-full py-3 text-base"
-            disabled={password !== confirmPassword}
-          >
-            🚀 Create Account
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-mono font-bold text-neon-green mb-2 uppercase tracking-wider">
+                &gt; Confirm Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="cyber-input w-full p-3 rounded font-mono text-neon-green"
+                placeholder="confirm.password"
+                required
+              />
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-xs text-neon-pink mt-1 font-mono animate-neon-flicker">
+                  // ERROR: passwords do not match
+                </p>
+              )}
+              {confirmPassword && password === confirmPassword && (
+                <p className="text-xs text-neon-green mt-1 font-mono neon-text">
+                  // SUCCESS: passwords match
+                </p>
+              )}
+            </div>
 
-        {/* Login Link */}
-        <div className="mt-6 text-center">
-          <p className="text-text-secondary text-sm">
-            Already have an account?{" "}
-            <Link
-              to="/"
-              className="text-primary hover:text-primary-hover font-medium transition-colors"
+            <button
+              type="submit"
+              className="btn-neon w-full py-4 text-lg font-mono rounded hover:transform hover:scale-105 transition-all duration-300"
+              disabled={password !== confirmPassword}
             >
-              Sign in here
-            </Link>
-          </p>
-        </div>
+              INITIALIZE ACCOUNT
+            </button>
+          </form>
 
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-xs text-text-muted">
-            By creating an account, you agree to play fair and have fun!
-          </p>
+          {/* Login Link */}
+          <div className="mt-8 text-center">
+            <p className="text-text-muted text-sm font-mono">
+              ACCOUNT EXISTS?{" "}
+              <Link
+                to="/"
+                className="text-neon-cyan hover:text-neon-purple font-bold transition-colors duration-300 neon-text"
+              >
+                ACCESS LOGIN
+              </Link>
+            </p>
+          </div>
+
+          {/* Footer Terminal Style */}
+          <div className="mt-8 text-center">
+            <div className="terminal-window p-3 rounded bg-cyber-black">
+              <p className="text-xs text-neon-green font-mono">
+                REGISTRATION_PROTOCOL v1.8.3 • SECURE_HASH_ACTIVE
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

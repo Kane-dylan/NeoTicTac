@@ -10,9 +10,8 @@ const GameBoard = ({
   const isWinningSquare = (index) => {
     return winningLine && winningLine.includes(index);
   };
-
   return (
-    <div className="inline-block p-6 card">
+    <div className="inline-block p-6 cyber-card">
       <div className="grid grid-cols-3 gap-3 md:gap-4">
         {board.map((value, index) => (
           <Square
