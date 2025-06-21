@@ -342,7 +342,9 @@ def register_socket_handlers(socketio):
         emit('user_typing', {
             'user': data['user'],
             'is_typing': data['is_typing']
-        }, room=room_id, include_self=False)    @socketio.on('request_game_restart')
+        }, room=room_id, include_self=False)
+
+    @socketio.on('request_game_restart')
     def on_request_game_restart(data):
         game_id = data['room']
         player = data.get('player')
@@ -364,23 +366,22 @@ def register_socket_handlers(socketio):
                 emit('error', {'message': 'Only game players can request restart'})
                 return
             
-            # Initialize game room if not exists
+            # Initialize restart votes if not exists
             if game_id not in game_rooms:
                 game_rooms[game_id] = {'players': set(), 'spectators': set(), 'room_name': room_name}
             
-            # Initialize restart votes if not exists
             if 'restart_votes' not in game_rooms[game_id]:
                 game_rooms[game_id]['restart_votes'] = set()
             
-            # Add player's vote to restart
+            # Store restart vote
             game_rooms[game_id]['restart_votes'].add(player)
             
             # Determine other player
             other_player = game.player_o if player == game.player_x else game.player_x
 
-            # Check if both players have voted for restart
+            # Check if both players voted for restart
             if len(game_rooms[game_id]['restart_votes']) >= 2:
-                # Both players agreed (this happens when second player requests restart), restart immediately
+                # Both players agreed, restart the game
                 game.board_data = [''] * 9
                 game.current_turn = 'X'
                 game.winner = None
@@ -388,8 +389,6 @@ def register_socket_handlers(socketio):
                 
                 # Clear restart votes
                 game_rooms[game_id]['restart_votes'] = set()
-                if 'restart_request' in game_rooms[game_id]:
-                    del game_rooms[game_id]['restart_request']
                 
                 db.session.commit()
                 
@@ -405,122 +404,21 @@ def register_socket_handlers(socketio):
                 }, room=room_name)
 
             else:
-                # First player requesting restart, notify other player
-                game_rooms[game_id]['restart_request'] = {
-                    'requesting_player': player,
-                    'other_player': other_player
-                }
-                
+                # First vote, notify other player about restart request
                 emit('restart_requested', {
                     'requesting_player': player,
                     'other_player': other_player,
-                    'message': f'{player} wants to restart the game. Waiting for {other_player} to respond.'
+                    'votes_needed': 2 - len(game_rooms[game_id]['restart_votes']),
+                    'message': f'{player} wants to restart the game. Waiting for {other_player} to accept.'
                 }, room=room_name)
 
         except Exception as e:
+
             db.session.rollback()
-            emit('error', {'message': 'Failed to request restart'})@socketio.on('accept_restart')
+            emit('error', {'message': 'Failed to restart game'})    @socketio.on('accept_restart')
     def on_accept_restart(data):
-        game_id = data['room']
-        player = data.get('player')
-        room_name = f"game_{game_id}"
-
-        try:
-            game = Game.query.get(game_id)
-            if not game:
-                emit('error', {'message': 'Game not found'})
-                return
-            
-            # Only allow restart if game is completed
-            if not (game.winner or game.is_draw):
-                emit('error', {'message': 'Game is still in progress'})
-                return
-            
-            # Check if player is one of the game participants
-            if player not in [game.player_x, game.player_o]:
-                emit('error', {'message': 'Only game players can accept restart'})
-                return
-            
-            # Initialize game room if not exists
-            if game_id not in game_rooms:
-                game_rooms[game_id] = {'players': set(), 'spectators': set(), 'room_name': room_name}
-            
-            # Initialize restart votes if not exists
-            if 'restart_votes' not in game_rooms[game_id]:
-                game_rooms[game_id]['restart_votes'] = set()
-            
-            # Add player's vote
-            game_rooms[game_id]['restart_votes'].add(player)
-            
-            # If both players have voted (should be 2 now), restart the game
-            if len(game_rooms[game_id]['restart_votes']) >= 2:
-                # Both players agreed, restart the game
-                game.board_data = [''] * 9
-                game.current_turn = 'X'
-                game.winner = None
-                game.is_draw = False
-                
-                # Clear restart votes and any pending requests
-                game_rooms[game_id]['restart_votes'] = set()
-                if 'restart_request' in game_rooms[game_id]:
-                    del game_rooms[game_id]['restart_request']
-                
-                db.session.commit()
-                
-                # Notify all players that game restarted
-                emit('game_restarted', {
-                    'game': game.to_dict(),
-                    'message': 'Game has been restarted! Get ready for a new round!'
-                }, room=room_name)
-                
-                emit('game_state_update', {
-                    'game': game.to_dict(),
-                    'restart': True
-                }, room=room_name)
-            else:
-                # This shouldn't happen in normal flow, but handle gracefully
-                emit('error', {'message': 'Restart acceptance failed'})
-
-        except Exception as e:
-            db.session.rollback()
-            emit('error', {'message': 'Failed to accept restart'})
-
-    @socketio.on('decline_restart')
-    def on_decline_restart(data):
-        game_id = data['room']
-        player = data.get('player')
-        room_name = f"game_{game_id}"
-
-        try:
-            game = Game.query.get(game_id)
-            if not game:
-                emit('error', {'message': 'Game not found'})
-                return
-            
-            # Check if player is one of the game participants
-            if player not in [game.player_x, game.player_o]:
-                emit('error', {'message': 'Only game players can decline restart'})
-                return
-            
-            # Clear any restart votes and requests for this game
-            if game_id in game_rooms:
-                if 'restart_votes' in game_rooms[game_id]:
-                    game_rooms[game_id]['restart_votes'] = set()
-                if 'restart_request' in game_rooms[game_id]:
-                    del game_rooms[game_id]['restart_request']
-            
-            # Determine other player
-            other_player = game.player_o if player == game.player_x else game.player_x
-            
-            # Notify all players that restart was declined
-            emit('restart_declined', {
-                'declining_player': player,
-                'other_player': other_player,
-                'message': f'{player} declined the restart request.'
-            }, room=room_name)
-
-        except Exception as e:
-            emit('error', {'message': 'Failed to decline restart'})
+        # This will trigger the same voting logic as request_game_restart
+        on_request_game_restart(data)
 
     @socketio.on('delete_finished_game')
     def on_delete_finished_game(data):
