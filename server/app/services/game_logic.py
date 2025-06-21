@@ -1,7 +1,7 @@
 def check_winner(board):
     """
     Check if there's a winner on the board.
-    Returns 'X', 'O', or None
+    Returns {'winner': 'X'/'O'/None, 'winning_line': [indices] or None}
     """
     # Winning combinations (indices)
     winning_combinations = [
@@ -13,15 +13,19 @@ def check_winner(board):
     for combo in winning_combinations:
         if (board[combo[0]] != "" and 
             board[combo[0]] == board[combo[1]] == board[combo[2]]):
-            return board[combo[0]]
+            return {
+                'winner': board[combo[0]],
+                'winning_line': combo
+            }
     
-    return None
+    return {'winner': None, 'winning_line': None}
 
 def is_draw(board):
     """
     Check if the game is a draw (board full, no winner).
     """
-    return all(cell != "" for cell in board) and check_winner(board) is None
+    result = check_winner(board)
+    return all(cell != "" for cell in board) and result['winner'] is None
 
 def is_valid_move(board, index):
     """

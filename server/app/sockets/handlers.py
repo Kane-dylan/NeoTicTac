@@ -111,16 +111,19 @@ def register_socket_handlers(socketio):
             emit('lobby_games_update', {'games': []})
     
     @socketio.on('leave_lobby')
-    def on_leave_lobby():
-        leave_room('lobby')
+    def on_leave_lobby():        leave_room('lobby')
     
     @socketio.on('join_room')
     def on_join_room(data):
         try:
             game_id = data['room']
-            player = data['player']
+            player = data['player'].strip() if data.get('player') else None
+            
+            if not player:
+                emit('error', {'message': 'Player name is required'})
+                return
+                
             room_name = f"game_{game_id}"
-
             join_room(room_name)
         except Exception as e:
             emit('error', {'message': 'Failed to join room'})
@@ -239,13 +242,15 @@ def register_socket_handlers(socketio):
                 }, room=room_name)
                 
         except Exception as e:
-            emit('error', {'message': 'Failed to join room'})
-
-    @socketio.on('make_move')
+            emit('error', {'message': 'Failed to join room'})    @socketio.on('make_move')
     def on_make_move(data):
         game_id = data['room']
         index = data['index']
-        player = data.get('player')
+        player = data.get('player', '').strip()
+        
+        if not player:
+            emit('error', {'message': 'Player name is required'})
+            return
 
         try:
             game = Game.query.get(game_id)
@@ -277,11 +282,19 @@ def register_socket_handlers(socketio):
             symbol = game.current_turn
             board[index] = symbol
             game.board_data = board
+              # Check for winner or draw
+            result = check_winner(board)
+            winner = result['winner']
+            winning_line = result['winning_line']
             
-            # Check for winner or draw
-            winner = check_winner(board)
+            print(f"🏆 Server Debug - Game {game_id}:")
+            print(f"  - Winner: {winner}")
+            print(f"  - Winning line: {winning_line}")
+            
             if winner:
                 game.winner = winner
+                game.winning_line_data = winning_line
+                print(f"  - Set game.winning_line_data: {game.winning_line_data}")
 
             elif is_draw(board):
                 game.is_draw = True
@@ -302,6 +315,8 @@ def register_socket_handlers(socketio):
                     'timestamp': datetime.utcnow().isoformat()
                 }
             }
+            
+            print(f"  - Move data game.winning_line: {move_data['game'].get('winning_line')}")
             
             room_name = f"game_{game_id}"
             
