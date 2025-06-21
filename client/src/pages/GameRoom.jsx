@@ -5,10 +5,12 @@ import { getGameDetails } from "../services/api";
 import GameBoard from "../components/GameBoard";
 import PlayerInfo from "../components/PlayerInfo";
 import ChatBox from "../components/ChatBox";
+import PlayAgainManager from "../components/PlayAgainManager";
+import { Toaster } from "react-hot-toast";
 
 const GameRoom = () => {
   const { id: gameId } = useParams();
-  const { socket } = useSocket();
+  const { socket, playerConnections } = useSocket();
   const navigate = useNavigate();
 
   const [game, setGame] = useState(null);
@@ -121,15 +123,6 @@ const GameRoom = () => {
       });
     }
   };
-
-  const requestRestart = () => {
-    if (socket && currentPlayer) {
-      socket.emit("request_game_restart", {
-        room: gameId,
-        player: currentPlayer,
-      });
-    }
-  };
   const leaveGame = () => navigate("/lobby");
 
   const isCurrentPlayerTurn = () => {
@@ -196,7 +189,9 @@ const GameRoom = () => {
         <div className="card p-8 max-w-md w-full mx-4">
           <div className="text-center">
             <div className="text-6xl mb-4">🎮</div>
-            <h2 className="text-2xl font-bold text-text-primary mb-4">Game Not Found</h2>
+            <h2 className="text-2xl font-bold text-text-primary mb-4">
+              Game Not Found
+            </h2>
             <p className="text-text-secondary mb-6">
               The game you're looking for doesn't exist or has been deleted.
             </p>
@@ -226,9 +221,10 @@ const GameRoom = () => {
                 Game ID: <span className="font-mono font-medium">{gameId}</span>
               </p>
             </div>
-            
+
             {/* Control Buttons */}
             <div className="flex flex-wrap gap-2">
+              {" "}
               <button
                 className="btn-secondary text-sm px-4 py-2"
                 onClick={reloadGameState}
@@ -237,17 +233,15 @@ const GameRoom = () => {
               >
                 🔄 Reload
               </button>
-              
               {canControlGame() && isGameCompleted() && (
-                <button
-                  className="btn-primary text-sm px-4 py-2"
-                  onClick={requestRestart}
-                  title="Request to play again"
-                >
-                  🔁 Play Again
-                </button>
+                <PlayAgainManager
+                  game={game}
+                  currentPlayer={currentPlayer}
+                  gameId={gameId}
+                  isGameCompleted={isGameCompleted()}
+                  canControlGame={canControlGame()}
+                />
               )}
-              
               {canControlGame() && isGameCompleted() && (
                 <button
                   className="bg-accent-error hover:bg-accent-error/90 text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -257,7 +251,6 @@ const GameRoom = () => {
                   🗑️ Delete Game
                 </button>
               )}
-              
               <button
                 className="bg-text-muted hover:bg-text-secondary text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
                 onClick={leaveGame}
@@ -283,13 +276,13 @@ const GameRoom = () => {
         {isGameCompleted() && (
           <div className="card p-6 mb-6 bg-accent-success/5 border-accent-success/20">
             <div className="text-center">
-              <div className="text-4xl mb-3">
-                {game.is_draw ? "🤝" : "🎉"}
-              </div>
+              <div className="text-4xl mb-3">{game.is_draw ? "🤝" : "🎉"}</div>
               <h2 className="text-2xl font-bold text-text-primary mb-4">
                 {game.is_draw
                   ? "Game ended in a draw!"
-                  : `${game.winner === "X" ? game.player_x : game.player_o} wins!`}
+                  : `${
+                      game.winner === "X" ? game.player_x : game.player_o
+                    } wins!`}
               </h2>
               <p className="text-text-secondary mb-4">
                 {game.is_draw
@@ -309,8 +302,12 @@ const GameRoom = () => {
                 👥 Players
               </h2>
               <div className="space-y-4">
+                {" "}
                 <PlayerInfo
-                  player={{ username: game.player_x || "Player X", symbol: "X" }}
+                  player={{
+                    username: game.player_x || "Player X",
+                    symbol: "X",
+                  }}
                   isActive={
                     game.current_turn === "X" &&
                     game.player_o &&
@@ -319,7 +316,7 @@ const GameRoom = () => {
                   }
                   isCurrentUser={currentPlayer === game.player_x}
                   isWaiting={false}
-                  isConnected={true}
+                  isConnected={playerConnections[game.player_x] !== false}
                 />
                 <PlayerInfo
                   player={{
@@ -331,7 +328,11 @@ const GameRoom = () => {
                   }
                   isCurrentUser={currentPlayer === game.player_o}
                   isWaiting={!game.player_o}
-                  isConnected={true}
+                  isConnected={
+                    game.player_o
+                      ? playerConnections[game.player_o] !== false
+                      : true
+                  }
                 />
               </div>
 
@@ -347,14 +348,19 @@ const GameRoom = () => {
                     <div className="bg-background-tertiary border border-border-light text-text-secondary p-3 rounded-lg text-center">
                       <div className="font-medium">⏳ Waiting for opponent</div>
                       <div className="text-sm">
-                        {currentPlayer === game.player_x ? game.player_o : game.player_x}'s turn
+                        {currentPlayer === game.player_x
+                          ? game.player_o
+                          : game.player_x}
+                        's turn
                       </div>
                     </div>
                   )
                 ) : (
                   <div className="bg-accent-warning/10 border border-accent-warning/20 text-accent-warning p-3 rounded-lg text-center">
                     <div className="font-medium">🔍 Waiting for opponent</div>
-                    <div className="text-sm">Share the game ID to invite players</div>
+                    <div className="text-sm">
+                      Share the game ID to invite players
+                    </div>
                   </div>
                 )}
               </div>
@@ -363,8 +369,8 @@ const GameRoom = () => {
 
           {/* Game Board Section */}
           <div className="lg:col-span-2 flex items-center justify-center">
-            <GameBoard 
-              board={game.board} 
+            <GameBoard
+              board={game.board}
               onSquareClick={handleSquareClick}
               disabled={!isCurrentPlayerTurn() || isGameCompleted()}
             />
@@ -372,10 +378,26 @@ const GameRoom = () => {
 
           {/* Chat Section */}
           <div className="lg:col-span-1">
-            <ChatBox messages={messages} sendMessage={sendMessage} />
+            <ChatBox messages={messages} sendMessage={sendMessage} />{" "}
           </div>
         </div>
       </div>
+
+      {/* React Hot Toast Container */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            border: "1px solid #374151",
+            borderRadius: "0.5rem",
+            fontSize: "14px",
+            fontFamily: "monospace",
+          },
+        }}
+      />
     </div>
   );
 };

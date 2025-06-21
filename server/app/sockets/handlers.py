@@ -33,9 +33,7 @@ def register_socket_handlers(socketio):
             return True
         except Exception as e:
 
-            return True
-
-    @socketio.on('disconnect')
+            return True    @socketio.on('disconnect')
     def on_disconnect():
         username = None
         for user, sid in list(active_connections.items()):
@@ -45,6 +43,30 @@ def register_socket_handlers(socketio):
         
         if username:
             del active_connections[username]
+
+            # Cancel any pending play again invitations
+            try:
+                for game_id, room_data in game_rooms.items():
+                    if 'play_again_invites' in room_data:
+                        invites_to_remove = []
+                        for invite_key, invite_data in room_data['play_again_invites'].items():
+                            if invite_data['inviter'] == username or invite_data['invitee'] == username:
+                                invites_to_remove.append(invite_key)
+                                
+                                # Notify the other player
+                                other_player = invite_data['invitee'] if invite_data['inviter'] == username else invite_data['inviter']
+                                if other_player in active_connections:
+                                    emit('play_again_cancelled', {
+                                        'gameId': game_id,
+                                        'inviter': invite_data['inviter'],
+                                        'reason': 'player_disconnected'
+                                    }, room=active_connections[other_player])
+                        
+                        # Remove the invitations
+                        for invite_key in invites_to_remove:
+                            del room_data['play_again_invites'][invite_key]
+            except Exception as e:
+                pass  # Handle exception gracefully
 
             # Notify games where this user was playing
             try:
@@ -344,7 +366,206 @@ def register_socket_handlers(socketio):
             'is_typing': data['is_typing']
         }, room=room_id, include_self=False)
 
-    @socketio.on('request_game_restart')
+    @socketio.on('send_play_again_invite')
+    def on_send_play_again_invite(data):
+        """Handle sending play again invitation"""
+        try:
+            game_id = data['gameId']
+            inviter = data['inviter']
+            invitee = data['invitee']
+            
+            # Verify game exists and is completed
+            game = Game.query.get(game_id)
+            if not game:
+                emit('error', {'message': 'Game not found'})
+                return
+                
+            if not (game.winner or game.is_draw):
+                emit('error', {'message': 'Game is not completed yet'})
+                return
+                
+            # Verify the inviter is a player in this game
+            if inviter not in [game.player_x, game.player_o]:
+                emit('error', {'message': 'Only game players can send invitations'})
+                return
+                
+            # Check if invitee is still connected
+            if invitee not in active_connections:
+                emit('error', {'message': f'{invitee} is not connected'})
+                return
+                
+            # Initialize play again tracking for this game
+            if game_id not in game_rooms:
+                game_rooms[game_id] = {'players': set(), 'spectators': set(), 'room_name': f'game_{game_id}'}
+                
+            if 'play_again_invites' not in game_rooms[game_id]:
+                game_rooms[game_id]['play_again_invites'] = {}
+                
+            # Prevent duplicate invites
+            invite_key = f"{inviter}_{invitee}"
+            if invite_key in game_rooms[game_id]['play_again_invites']:
+                emit('error', {'message': 'Invitation already sent'})
+                return
+                
+            # Store the invitation
+            game_rooms[game_id]['play_again_invites'][invite_key] = {
+                'inviter': inviter,
+                'invitee': invitee,
+                'timestamp': datetime.utcnow(),
+                'status': 'pending'
+            }
+            
+            # Send invitation to the invitee
+            invitee_sid = active_connections.get(invitee)
+            if invitee_sid:
+                emit('play_again_invite', {
+                    'gameId': game_id,
+                    'inviter': inviter,
+                    'invitee': invitee,
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room=invitee_sid)
+                
+        except Exception as e:
+            emit('error', {'message': 'Failed to send play again invitation'})
+
+    @socketio.on('respond_to_play_again')
+    def on_respond_to_play_again(data):
+        """Handle response to play again invitation"""
+        try:
+            game_id = data['gameId']
+            inviter = data['inviter']
+            invitee = data['invitee']
+            accepted = data['accepted']
+            
+            # Verify game exists
+            game = Game.query.get(game_id)
+            if not game:
+                emit('error', {'message': 'Game not found'})
+                return
+                
+            # Check invitation exists
+            if game_id not in game_rooms or 'play_again_invites' not in game_rooms[game_id]:
+                emit('error', {'message': 'No invitation found'})
+                return
+                
+            invite_key = f"{inviter}_{invitee}"
+            if invite_key not in game_rooms[game_id]['play_again_invites']:
+                emit('error', {'message': 'Invitation not found or expired'})
+                return
+                
+            # Remove the invitation
+            del game_rooms[game_id]['play_again_invites'][invite_key]
+            
+            # Send response to inviter
+            inviter_sid = active_connections.get(inviter)
+            if inviter_sid:
+                emit('play_again_response', {
+                    'gameId': game_id,
+                    'inviter': inviter,
+                    'invitee': invitee,
+                    'accepted': accepted,
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room=inviter_sid)
+            
+            if accepted:
+                # Reset the game state
+                game.board_data = [''] * 9
+                game.current_turn = 'X'
+                game.winner = None
+                game.is_draw = False
+                
+                db.session.commit()
+                
+                # Notify both players that game has restarted
+                room_name = f"game_{game_id}"
+                emit('game_restarted', {
+                    'game': game.to_dict(),
+                    'message': f'New game started! {invitee} accepted the invitation.',
+                    'restarted_by': 'mutual_agreement'
+                }, room=room_name)
+                
+                # Send updated game state
+                emit('game_state_update', {
+                    'game': game.to_dict(),
+                    'restart': True
+                }, room=room_name)
+                
+        except Exception as e:
+            db.session.rollback()
+            emit('error', {'message': 'Failed to process play again response'})
+
+    @socketio.on('cancel_play_again_invite')
+    def on_cancel_play_again_invite(data):
+        """Handle cancellation of play again invitation"""
+        try:
+            game_id = data['gameId']
+            inviter = data['inviter']
+            invitee = data['invitee']
+            
+            if game_id in game_rooms and 'play_again_invites' in game_rooms[game_id]:
+                invite_key = f"{inviter}_{invitee}"
+                if invite_key in game_rooms[game_id]['play_again_invites']:
+                    del game_rooms[game_id]['play_again_invites'][invite_key]
+                    
+                    # Notify invitee that invitation was cancelled
+                    invitee_sid = active_connections.get(invitee)
+                    if invitee_sid:
+                        emit('play_again_cancelled', {
+                            'gameId': game_id,
+                            'inviter': inviter,
+                            'reason': 'cancelled_by_inviter'
+                        }, room=invitee_sid)
+                        
+        except Exception as e:
+            emit('error', {'message': 'Failed to cancel invitation'})
+
+    @socketio.on('delete_game_from_lobby')
+    def on_delete_game_from_lobby(data):
+        """Handle game deletion from lobby"""
+        try:
+            game_id = data['game_id']
+            player = data['player']
+            
+            # Verify game exists
+            game = Game.query.get(game_id)
+            if not game:
+                emit('error', {'message': 'Game not found'})
+                return
+                
+            # Verify the player can delete this game (is one of the players)
+            if player not in [game.player_x, game.player_o]:
+                emit('error', {'message': 'Only game players can delete the game'})
+                return
+                
+            # Verify game is completed
+            if not (game.winner or game.is_draw):
+                emit('error', {'message': 'Cannot delete active game'})
+                return
+                
+            # Remove game from database
+            db.session.delete(game)
+            db.session.commit()
+            
+            # Notify lobby about game deletion
+            emit('game_deleted', {
+                'game_id': game_id,
+                'deleted_by': player
+            }, room='lobby')
+            
+            # Notify any remaining players in the game room
+            room_name = f"game_{game_id}"
+            emit('game_deleted', {
+                'game_id': game_id,
+                'deleted_by': player,
+                'message': 'Game has been deleted'
+            }, room=room_name)
+            
+            # Clean up room tracking
+            if game_id in game_rooms:
+                del game_rooms[game_id]                
+        except Exception as e:
+            db.session.rollback()
+            emit('error', {'message': 'Failed to delete game'})
     def on_request_game_restart(data):
         game_id = data['room']
         player = data.get('player')
