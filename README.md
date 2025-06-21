@@ -34,17 +34,16 @@ python run.py  # Development
 - ✅ Connection health monitoring  
 - ✅ Responsive design
 - ✅ Auto-reconnection handling
+- ✅ Play-again in same room as users mood
 
 ## 📚 Documentation
 
 - **Frontend Setup:** [client/README.md](client/README.md)
 - **Backend Setup:** [server/README.md](server/README.md)
-- **Production Guide:** [PRODUCTION_READY.md](PRODUCTION_READY.md)
 
 ## 🌐 Live Demo
 
-- **Frontend:** https://tic-tac-toe-ten-murex-86.vercel.app
-- **Backend:** https://tictactoe-gxkw.onrender.com
+- **Try Here:** https://playtictac.live
 
 ---
 

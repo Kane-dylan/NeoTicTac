@@ -8,6 +8,7 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [playerConnections, setPlayerConnections] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -22,13 +23,28 @@ export const SocketProvider = ({ children }) => {
     newSocket.on("connect", () => setConnected(true));
     newSocket.on("disconnect", () => setConnected(false));
 
+    // Track player connections for better status display
+    newSocket.on("player_disconnected", (data) => {
+      setPlayerConnections((prev) => ({
+        ...prev,
+        [data.player]: false,
+      }));
+    });
+
+    newSocket.on("player_joined", (data) => {
+      setPlayerConnections((prev) => ({
+        ...prev,
+        [data.player]: true,
+      }));
+    });
+
     setSocket(newSocket);
 
     return () => newSocket.disconnect();
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, connected }}>
+    <SocketContext.Provider value={{ socket, connected, playerConnections }}>
       {children}
     </SocketContext.Provider>
   );

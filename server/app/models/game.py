@@ -44,6 +44,7 @@ class Game(db.Model):
             self.board = '["","","","","","","","",""]'
     
     def to_dict(self):
+        """Convert game object to dictionary for JSON serialization"""
         return {
             'id': self.id,
             'player_x': self.player_x,

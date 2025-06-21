@@ -44,7 +44,25 @@ The application is configured for deployment on Render with Gunicorn.
 
 ## 🔌 WebSocket Events
 
-Real-time game updates via Socket.IO for moves, chat, and game state.
+Real-time game updates via Socket.IO for moves, chat, game state, and play again invitations.
+
+### Play Again Feature
+
+- `send_play_again_invite` - Send invitation to opponent
+- `respond_to_play_again` - Accept/decline invitation
+- `play_again_invite` - Receive invitation notification
+- `play_again_response` - Receive response to sent invitation
+- `game_restarted` - Game state reset and restarted
+- `play_again_cancelled` - Invitation cancelled (disconnect/timeout)
+
+### Game Management
+
+- `delete_game_from_lobby` - Delete completed game
+- `respond_to_play_again` - Accept/decline invitation
+- `play_again_invite` - Receive invitation notification
+- `play_again_response` - Receive response to sent invitation
+- `game_restarted` - Game state reset and restarted
+- `play_again_cancelled` - Invitation cancelled (disconnect/timeout)
 
 ## 🚀 Deployment
 
