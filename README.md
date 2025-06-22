@@ -41,9 +41,7 @@ python run.py  # Development
 - **Frontend Setup:** [client/README.md](client/README.md)
 - **Backend Setup:** [server/README.md](server/README.md)
 
-## 🌐 Live Demo
-
-- **Try Here:** https://playtictac.live
+## [🌐 Live Demo](https://playtictac.live)
 
 ---
 
