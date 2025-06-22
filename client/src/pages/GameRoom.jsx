@@ -181,7 +181,8 @@ const GameRoom = () => {
       socket.emit("send_message", {
         room: gameId,
         sender: currentPlayer,
-        text: text,        timestamp: Date.now(),
+        text: text,
+        timestamp: Date.now(),
       });
     }
   };
@@ -366,7 +367,8 @@ const GameRoom = () => {
               <button
                 className="btn-secondary text-sm px-4 py-2"
                 onClick={reloadGameState}
-                disabled={loading}                title="Refresh game state"
+                disabled={loading}
+                title="Refresh game state"
               >
                 🔄 Reload
               </button>
@@ -378,7 +380,6 @@ const GameRoom = () => {
                   visible={canRequestRematch() || rematchRequestPending}
                 />
               )}
-
               {canControlGame() && isGameCompleted() && (
                 <button
                   className="bg-accent-error hover:bg-accent-error/90 text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -388,7 +389,6 @@ const GameRoom = () => {
                   🗑️ Delete Game
                 </button>
               )}
-
               <button
                 className="bg-text-muted hover:bg-text-secondary text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
                 onClick={leaveGame}
@@ -516,9 +516,7 @@ const GameRoom = () => {
           <div className="lg:col-span-1">
             <ChatBox messages={messages} sendMessage={sendMessage} />{" "}
           </div>
-        </div>
-
-        {/* Rematch Modal */}
+        </div>        {/* Rematch Modal */}
         <RematchModal
           isOpen={showRematchModal}
           onAccept={handleAcceptRematch}
@@ -526,22 +524,6 @@ const GameRoom = () => {
           requestingPlayer={rematchRequestingPlayer}
         />
       </div>
-
-      {/* React Hot Toast Container */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: "#1f2937",
-            color: "#f9fafb",
-            border: "1px solid #374151",
-            borderRadius: "0.5rem",
-            fontSize: "14px",
-            fontFamily: "monospace",
-          },
-        }}
-      />
     </div>
   );
 };
