@@ -370,16 +370,16 @@ const GameRoom = () => {
                 disabled={loading}
                 title="Refresh game state"
               >
-                🔄 Reload
-              </button>
+                🔄 Reload              </button>
+
               {canControlGame() && isGameCompleted() && (
                 <PlayAgainButton
                   onClick={handlePlayAgain}
                   disabled={!canRequestRematch()}
                   pending={rematchRequestPending}
                   visible={canRequestRematch() || rematchRequestPending}
-                />
-              )}
+                />              )}
+
               {canControlGame() && isGameCompleted() && (
                 <button
                   className="bg-accent-error hover:bg-accent-error/90 text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -387,8 +387,8 @@ const GameRoom = () => {
                   title="Delete this game"
                 >
                   🗑️ Delete Game
-                </button>
-              )}
+                </button>              )}
+
               <button
                 className="bg-text-muted hover:bg-text-secondary text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
                 onClick={leaveGame}
@@ -516,7 +516,9 @@ const GameRoom = () => {
           <div className="lg:col-span-1">
             <ChatBox messages={messages} sendMessage={sendMessage} />{" "}
           </div>
-        </div>        {/* Rematch Modal */}
+        </div>
+
+        {/* Rematch Modal */}
         <RematchModal
           isOpen={showRematchModal}
           onAccept={handleAcceptRematch}
