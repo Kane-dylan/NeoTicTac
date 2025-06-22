@@ -5,6 +5,15 @@
   --scan-line-height: 2px;
   --neon-glow: 0 0 5px currentColor, 0 0 10px currentColor,
     0 0 15px currentColor;
+  --neon-green: #00ff41;
+  --neon-pink: #ff0080;
+  --neon-cyan: #00ffff;
+  --neon-purple: #8b5cf6;
+  --neon-yellow: #ffff00;
+  --cyber-black: #0a0a0a;
+  --cyber-dark: #1a1a2e;
+  --cyber-darker: #16213e;
+  --text-muted: #8b949e;
 }
 
 * {
@@ -427,4 +436,90 @@ body::before {
 
 .animate-spin-reverse {
   animation: spin-reverse 12s linear infinite;
+}
+
+/* Landing Page Specific Animations */
+@keyframes neon-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  75% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes neon-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 5px currentColor, 0 0 10px currentColor,
+      0 0 15px currentColor;
+    transform: scale(1);
+  }
+  50% {
+    text-shadow: 0 0 10px currentColor, 0 0 20px currentColor,
+      0 0 30px currentColor;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-neon-flicker {
+  animation: neon-flicker 3s ease-in-out infinite;
+}
+
+.animate-neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+.animate-float-up {
+  animation: float-up 0.6s ease-out;
+}
+
+/* Enhanced neon color variables for better consistency */
+:root {
+  --neon-green: #00ff41;
+  --neon-pink: #ff0080;
+  --neon-cyan: #00ffff;
+  --neon-purple: #8b5cf6;
+  --neon-yellow: #ffff00;
+  --cyber-black: #0a0a0a;
+  --cyber-dark: #1a1a2e;
+  --cyber-darker: #16213e;
+  --text-muted: #8b949e;
+}
+
+/* Additional utility classes for the landing page */
+.shadow-neon {
+  box-shadow: 0 0 20px currentColor;
+}
+
+.shadow-neon-sm {
+  box-shadow: 0 0 10px currentColor;
 }
