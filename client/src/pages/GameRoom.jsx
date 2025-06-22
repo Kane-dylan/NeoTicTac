@@ -1,21 +1,31 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useSocket } from "../context/SocketContext";
 import { getGameDetails } from "../services/api";
 import GameBoard from "../components/GameBoard";
 import PlayerInfo from "../components/PlayerInfo";
 import ChatBox from "../components/ChatBox";
+import PlayAgainButton from "../components/PlayAgainButton";
+import RematchModal from "../components/RematchModal";
 
 const GameRoom = () => {
   const { id: gameId } = useParams();
   const { socket } = useSocket();
   const navigate = useNavigate();
-
   const [game, setGame] = useState(null);
   const [messages, setMessages] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Rematch-related state
+  const [rematchRequestPending, setRematchRequestPending] = useState(false);
+  const [showRematchModal, setShowRematchModal] = useState(false);
+  const [rematchRequestingPlayer, setRematchRequestingPlayer] = useState(null);
+  const [pendingRematchRequests, setPendingRematchRequests] = useState(
+    new Set()
+  );
   const fetchGameDetails = useCallback(async () => {
     if (!gameId) return;
     try {
@@ -62,13 +72,64 @@ const GameRoom = () => {
       // Chat messages
       socket.on("receive_message", (message) => {
         setMessages((prev) => [...prev, message]);
-      });
-
-      // Game events
+      }); // Game events
       socket.on("player_joined", () => fetchGameDetails());
       socket.on("game_over", () => fetchGameDetails());
-    }
+      // Rematch event handlers
+      socket.on("rematch_requested", (data) => {
+        const { requesting_player } = data;
+        if (requesting_player !== currentPlayer) {
+          setRematchRequestingPlayer(requesting_player);
+          setShowRematchModal(true);
+          toast(`${requesting_player} wants to play again!`, {
+            icon: "🎮",
+            duration: 6000,
+          });
+        }
+      });
 
+      socket.on("rematch_accepted", (data) => {
+        setRematchRequestPending(false);
+        setPendingRematchRequests(new Set());
+        setShowRematchModal(false);
+        setRematchRequestingPlayer(null);
+        toast.success("New game started!", {
+          icon: "🚀",
+          duration: 3000,
+        });
+        fetchGameDetails();
+      });
+
+      socket.on("rematch_declined", (data) => {
+        const { declining_player } = data;
+        setRematchRequestPending(false);
+        setPendingRematchRequests(new Set());
+        if (declining_player !== currentPlayer) {
+          toast.error(`${declining_player} declined the rematch`, {
+            icon: "❌",
+            duration: 4000,
+          });
+        }
+      });
+
+      socket.on("player_disconnected", (data) => {
+        const { player } = data;
+        // Reset rematch state if the disconnected player was involved
+        if (
+          player === rematchRequestingPlayer ||
+          pendingRematchRequests.has(player)
+        ) {
+          setRematchRequestPending(false);
+          setPendingRematchRequests(new Set());
+          setShowRematchModal(false);
+          setRematchRequestingPlayer(null);
+          toast.error(`${player} disconnected`, {
+            icon: "🔌",
+            duration: 4000,
+          });
+        }
+      });
+    }
     return () => {
       if (socket) {
         socket.emit("leave_room", { room: gameId, player: username });
@@ -77,6 +138,10 @@ const GameRoom = () => {
         socket.off("receive_message");
         socket.off("player_joined");
         socket.off("game_over");
+        socket.off("rematch_requested");
+        socket.off("rematch_accepted");
+        socket.off("rematch_declined");
+        socket.off("player_disconnected");
       }
     };
   }, [socket, gameId, navigate, fetchGameDetails]);
@@ -121,7 +186,6 @@ const GameRoom = () => {
       });
     }
   };
-
   const requestRestart = () => {
     if (socket && currentPlayer) {
       socket.emit("request_game_restart", {
@@ -129,6 +193,63 @@ const GameRoom = () => {
         player: currentPlayer,
       });
     }
+  };
+  // Rematch handler functions
+  const handlePlayAgain = () => {
+    if (!socket || !currentPlayer || !game) return;
+
+    // Prevent duplicate requests
+    if (rematchRequestPending) return;
+
+    const otherPlayer =
+      currentPlayer === game.player_x ? game.player_o : game.player_x;
+
+    // Check for simultaneous requests
+    if (pendingRematchRequests.has(otherPlayer)) {
+      // Other player already requested, accept it
+      handleAcceptRematch();
+      return;
+    }
+
+    setRematchRequestPending(true);
+    setPendingRematchRequests((prev) => new Set([...prev, currentPlayer]));
+
+    socket.emit("rematch_request", {
+      room: gameId,
+      requesting_player: currentPlayer,
+      target_player: otherPlayer,
+    });
+
+    toast("Rematch request sent!", {
+      icon: "📤",
+      duration: 3000,
+    });
+  };
+
+  const handleAcceptRematch = () => {
+    if (!socket || !currentPlayer) return;
+
+    socket.emit("rematch_accept", {
+      room: gameId,
+      accepting_player: currentPlayer,
+      requesting_player: rematchRequestingPlayer,
+    });
+
+    setShowRematchModal(false);
+    setRematchRequestingPlayer(null);
+  };
+
+  const handleDeclineRematch = () => {
+    if (!socket || !currentPlayer) return;
+
+    socket.emit("rematch_decline", {
+      room: gameId,
+      declining_player: currentPlayer,
+      requesting_player: rematchRequestingPlayer,
+    });
+
+    setShowRematchModal(false);
+    setRematchRequestingPlayer(null);
   };
   const leaveGame = () => navigate("/lobby");
 
@@ -175,9 +296,19 @@ const GameRoom = () => {
   const isGameCompleted = () => {
     return game && (game.winner || game.is_draw);
   };
-
   const canControlGame = () => {
     return currentPlayer === game.player_x || currentPlayer === game.player_o;
+  };
+
+  const canRequestRematch = () => {
+    return (
+      game &&
+      (game.winner || game.is_draw) &&
+      game.player_o &&
+      canControlGame() &&
+      !rematchRequestPending &&
+      !showRematchModal
+    );
   };
   if (loading) {
     return (
@@ -196,7 +327,9 @@ const GameRoom = () => {
         <div className="card p-8 max-w-md w-full mx-4">
           <div className="text-center">
             <div className="text-6xl mb-4">🎮</div>
-            <h2 className="text-2xl font-bold text-text-primary mb-4">Game Not Found</h2>
+            <h2 className="text-2xl font-bold text-text-primary mb-4">
+              Game Not Found
+            </h2>
             <p className="text-text-secondary mb-6">
               The game you're looking for doesn't exist or has been deleted.
             </p>
@@ -226,7 +359,7 @@ const GameRoom = () => {
                 Game ID: <span className="font-mono font-medium">{gameId}</span>
               </p>
             </div>
-            
+
             {/* Control Buttons */}
             <div className="flex flex-wrap gap-2">
               <button
@@ -237,17 +370,15 @@ const GameRoom = () => {
               >
                 🔄 Reload
               </button>
-              
               {canControlGame() && isGameCompleted() && (
-                <button
-                  className="btn-primary text-sm px-4 py-2"
-                  onClick={requestRestart}
-                  title="Request to play again"
-                >
-                  🔁 Play Again
-                </button>
+                <PlayAgainButton
+                  onClick={handlePlayAgain}
+                  disabled={!canRequestRematch()}
+                  pending={rematchRequestPending}
+                  visible={canRequestRematch() || rematchRequestPending}
+                />
               )}
-              
+
               {canControlGame() && isGameCompleted() && (
                 <button
                   className="bg-accent-error hover:bg-accent-error/90 text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -257,7 +388,7 @@ const GameRoom = () => {
                   🗑️ Delete Game
                 </button>
               )}
-              
+
               <button
                 className="bg-text-muted hover:bg-text-secondary text-text-inverse text-sm px-4 py-2 rounded-md font-medium transition-all duration-200"
                 onClick={leaveGame}
@@ -283,13 +414,13 @@ const GameRoom = () => {
         {isGameCompleted() && (
           <div className="card p-6 mb-6 bg-accent-success/5 border-accent-success/20">
             <div className="text-center">
-              <div className="text-4xl mb-3">
-                {game.is_draw ? "🤝" : "🎉"}
-              </div>
+              <div className="text-4xl mb-3">{game.is_draw ? "🤝" : "🎉"}</div>
               <h2 className="text-2xl font-bold text-text-primary mb-4">
                 {game.is_draw
                   ? "Game ended in a draw!"
-                  : `${game.winner === "X" ? game.player_x : game.player_o} wins!`}
+                  : `${
+                      game.winner === "X" ? game.player_x : game.player_o
+                    } wins!`}
               </h2>
               <p className="text-text-secondary mb-4">
                 {game.is_draw
@@ -310,7 +441,10 @@ const GameRoom = () => {
               </h2>
               <div className="space-y-4">
                 <PlayerInfo
-                  player={{ username: game.player_x || "Player X", symbol: "X" }}
+                  player={{
+                    username: game.player_x || "Player X",
+                    symbol: "X",
+                  }}
                   isActive={
                     game.current_turn === "X" &&
                     game.player_o &&
@@ -347,34 +481,45 @@ const GameRoom = () => {
                     <div className="bg-background-tertiary border border-border-light text-text-secondary p-3 rounded-lg text-center">
                       <div className="font-medium">⏳ Waiting for opponent</div>
                       <div className="text-sm">
-                        {currentPlayer === game.player_x ? game.player_o : game.player_x}'s turn
+                        {currentPlayer === game.player_x
+                          ? game.player_o
+                          : game.player_x}
+                        's turn
                       </div>
                     </div>
                   )
                 ) : (
                   <div className="bg-accent-warning/10 border border-accent-warning/20 text-accent-warning p-3 rounded-lg text-center">
                     <div className="font-medium">🔍 Waiting for opponent</div>
-                    <div className="text-sm">Share the game ID to invite players</div>
+                    <div className="text-sm">
+                      Share the game ID to invite players
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           </div>
-
           {/* Game Board Section */}
           <div className="lg:col-span-2 flex items-center justify-center">
-            <GameBoard 
-              board={game.board} 
+            <GameBoard
+              board={game.board}
               onSquareClick={handleSquareClick}
               disabled={!isCurrentPlayerTurn() || isGameCompleted()}
             />
-          </div>
-
+          </div>{" "}
           {/* Chat Section */}
           <div className="lg:col-span-1">
             <ChatBox messages={messages} sendMessage={sendMessage} />
           </div>
         </div>
+
+        {/* Rematch Modal */}
+        <RematchModal
+          isOpen={showRematchModal}
+          onAccept={handleAcceptRematch}
+          onDecline={handleDeclineRematch}
+          requestingPlayer={rematchRequestingPlayer}
+        />
       </div>
     </div>
   );
