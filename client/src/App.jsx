@@ -1,5 +1,6 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Lobby from "./pages/Lobby";
@@ -24,6 +25,39 @@ function App() {
           />
         </Routes>
       </Router>
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#0a0a0a",
+            color: "#00ff88",
+            border: "2px solid #00ff88",
+            borderRadius: "8px",
+            fontFamily: "monospace",
+            fontSize: "14px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#00ff88",
+              secondary: "#0a0a0a",
+            },
+          },
+          error: {
+            style: {
+              border: "2px solid #ff0080",
+              color: "#ff0080",
+            },
+            iconTheme: {
+              primary: "#ff0080",
+              secondary: "#0a0a0a",
+            },
+          },
+        }}
+      />
     </ErrorBoundary>
   );
 }

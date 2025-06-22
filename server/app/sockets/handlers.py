@@ -78,6 +78,10 @@ def register_socket_handlers(socketio):
                 
                 for game in games:
                     room_name = f"game_{game.id}"
+                    # Clean up rematch requests for disconnected player
+                    if game.id in game_rooms and 'rematch_requests' in game_rooms[game.id]:
+                        game_rooms[game.id]['rematch_requests'].discard(username)
+                    
                     emit('player_disconnected', {
                         'player': username,
                         'game_id': game.id,
@@ -654,12 +658,26 @@ def register_socket_handlers(socketio):
             emit('error', {'message': 'Failed to restart game'})    @socketio.on('accept_restart')
     def on_accept_restart(data):
         # This will trigger the same voting logic as request_game_restart
-        on_request_game_restart(data)
-
-    @socketio.on('delete_finished_game')
-    def on_delete_finished_game(data):
+        on_request_game_restart(data)    # Rematch functionality handlers
+    @socketio.on('rematch_request')
+    def on_rematch_request(data):
+        """
+        Handle rematch request from a player.
+        
+        Validates the request, prevents duplicates, handles simultaneous requests,
+        and notifies the target player.
+        
+        Args:
+            data (dict): {
+                'room': game_id,
+                'requesting_player': username,
+                'target_player': target_username
+            }
+        """
         game_id = data['room']
-        player = data.get('player')
+        requesting_player = data.get('requesting_player')
+        target_player = data.get('target_player')
+        room_name = f"game_{game_id}"
 
         try:
             game = Game.query.get(game_id)
@@ -667,88 +685,165 @@ def register_socket_handlers(socketio):
                 emit('error', {'message': 'Game not found'})
                 return
             
-            # Only allow deletion if game is completed
+            # Only allow rematch if game is completed
             if not (game.winner or game.is_draw):
-                emit('error', {'message': 'Cannot delete game in progress'})
+                emit('error', {'message': 'Game is still in progress'})
                 return
             
             # Check if player is one of the game participants
-            if player not in [game.player_x, game.player_o]:
-                emit('error', {'message': 'Only game players can delete the game'})
+            if requesting_player not in [game.player_x, game.player_o]:
+                emit('error', {'message': 'Only game players can request rematch'})
                 return
             
-            # Store game info for logging
-            game_info = {
-                'id': game.id,
-                'player_x': game.player_x,
-                'player_o': game.player_o,
-                'winner': game.winner,
-                'is_draw': game.is_draw
-            }
+            # Initialize rematch tracking if not exists
+            if game_id not in game_rooms:
+                game_rooms[game_id] = {'players': set(), 'spectators': set(), 'room_name': room_name}
             
-            # Delete the game from database
-            db.session.delete(game)
-            db.session.commit()
+            if 'rematch_requests' not in game_rooms[game_id]:
+                game_rooms[game_id]['rematch_requests'] = set()
             
-            # Clean up room tracking
-            if game_id in game_rooms:
-                del game_rooms[game_id]
+            # Check for duplicate request
+            if requesting_player in game_rooms[game_id]['rematch_requests']:
+                emit('error', {'message': 'Rematch request already pending'})
+                return
             
-            # Notify all players in the room
-            room_name = f"game_{game_id}"
-            emit('game_deleted', {
-                'game_id': game_id,
-                'message': f'Game has been deleted by {player}',
-                'deleted_by': player,
-                'redirect_to_lobby': True
-            }, room=room_name)
+            # Store rematch request
+            game_rooms[game_id]['rematch_requests'].add(requesting_player)
             
-            # Notify lobby to refresh games list
-            emit('lobby_refresh_needed', {
-                'action': 'game_deleted',
+            # Check if both players requested rematch simultaneously
+            other_player = game.player_o if requesting_player == game.player_x else game.player_x
+            if other_player in game_rooms[game_id]['rematch_requests']:
+                # Both players requested, automatically start new game
+                _reset_game_for_rematch(game, game_id, room_name)
+                return
+            
+            # Send rematch request to the target player
+            emit('rematch_requested', {
+                'requesting_player': requesting_player,
+                'target_player': target_player,
                 'game_id': game_id
-            }, room='lobby')
-            
+            }, room=room_name)
+
         except Exception as e:
             db.session.rollback()
-            emit('error', {'message': 'Failed to delete game. Please try again.'})
+            emit('error', {'message': 'Failed to send rematch request'})
 
-    @socketio.on('delete_game_from_lobby')
-    def on_delete_game_from_lobby(data):
-        """Handle game deletion from lobby for finished games"""
-        game_id = data['game_id']
-        player = data.get('player')
+    @socketio.on('rematch_accept')
+    def on_rematch_accept(data):
+        """
+        Handle rematch acceptance.
+        
+        Resets the game state and starts a new game when a player accepts
+        a rematch request.
+        
+        Args:
+            data (dict): {
+                'room': game_id,
+                'accepting_player': username,
+                'requesting_player': requester_username
+            }
+        """
+        game_id = data['room']
+        accepting_player = data.get('accepting_player')
+        requesting_player = data.get('requesting_player')
+        room_name = f"game_{game_id}"
 
         try:
             game = Game.query.get(game_id)
             if not game:
-                emit('error', {'message': 'Game not found'}, room=request.sid)
+                emit('error', {'message': 'Game not found'})
                 return
             
-            # Only allow deletion if game is completed or player is the host
-            if not (game.winner or game.is_draw or game.player_x == player):
-                emit('error', {'message': 'Cannot delete this game'}, room=request.sid)
+            # Check if player is one of the game participants
+            if accepting_player not in [game.player_x, game.player_o]:
+                emit('error', {'message': 'Only game players can accept rematch'})
                 return
             
-            # Delete the game from database
-            db.session.delete(game)
-            db.session.commit()
-            
-            # Clean up room tracking
-            if game_id in game_rooms:
-                del game_rooms[game_id]
-            
-            # Notify lobby to refresh games list
-            emit('lobby_refresh_needed', {
-                'action': 'game_deleted',
-                'game_id': game_id,
-                'message': f'Game {game_id} deleted by {player}'            }, room='lobby')
-            
-            emit('success', {'message': 'Game deleted successfully'}, room=request.sid)
-            
+            # Reset game for rematch
+            _reset_game_for_rematch(game, game_id, room_name)
+
         except Exception as e:
             db.session.rollback()
-            emit('error', {'message': 'Failed to delete game'})
+            emit('error', {'message': 'Failed to accept rematch'})
+
+    @socketio.on('rematch_decline')
+    def on_rematch_decline(data):
+        """
+        Handle rematch decline.
+        
+        Clears the pending rematch request and notifies all players
+        that the rematch was declined.
+        
+        Args:
+            data (dict): {
+                'room': game_id,
+                'declining_player': username,
+                'requesting_player': requester_username
+            }
+        """
+        game_id = data['room']
+        declining_player = data.get('declining_player')
+        requesting_player = data.get('requesting_player')
+        room_name = f"game_{game_id}"
+
+        try:
+            # Clear rematch requests for this game
+            if game_id in game_rooms and 'rematch_requests' in game_rooms[game_id]:
+                game_rooms[game_id]['rematch_requests'].discard(requesting_player)
+            
+            # Notify players about the decline
+            emit('rematch_declined', {
+                'declining_player': declining_player,
+                'requesting_player': requesting_player,
+                'game_id': game_id
+            }, room=room_name)
+
+        except Exception as e:
+            emit('error', {'message': 'Failed to decline rematch'})
+
+    def _reset_game_for_rematch(game, game_id, room_name):
+        """
+        Helper function to reset game state for rematch.
+        
+        Resets the board, turn order, winner status, and cleans up
+        tracking data. Commits changes and notifies all players.
+        
+        Args:
+            game (Game): The game object to reset
+            game_id (int): The game ID
+            room_name (str): The socket room name
+            
+        Raises:
+            Exception: If database operations fail
+        """
+        try:
+            # Reset game state
+            game.board_data = [''] * 9
+            game.current_turn = 'X'
+            game.winner = None
+            game.is_draw = False
+            
+            # Clear rematch requests
+            if game_id in game_rooms and 'rematch_requests' in game_rooms[game_id]:
+                game_rooms[game_id]['rematch_requests'] = set()
+            
+            db.session.commit()
+            
+            # Notify all players that rematch was accepted and new game started
+            emit('rematch_accepted', {
+                'game': game.to_dict(),
+                'message': 'New game started!',
+                'game_id': game_id
+            }, room=room_name)
+            
+            emit('game_state_update', {
+                'game': game.to_dict(),
+                'rematch': True
+            }, room=room_name)
+
+        except Exception as e:
+            db.session.rollback()
+            raise e
 
 def cleanup_old_games():
     """Background task to clean up old finished games"""
