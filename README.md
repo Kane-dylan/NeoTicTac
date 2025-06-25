@@ -1,6 +1,6 @@
 # 🎮 Tic-Tac-Toe - Real-time Multiplayer Game
 
-A modern, real-time multiplayer tic-tac-toe game built with React and Flask.
+NeoTicTac is a real-time multiplayer Tic Tac Toe game built with React, Tailwind CSS, and Flask-SocketIO. It features custom modals, animated win indicators, and a retro-themed UI. The project highlights my full-stack skills in building responsive, interactive web apps with real-time communication, clean architecture, and production-ready deployment using Docker.
 
 ## 🚀 Quick Start
 
